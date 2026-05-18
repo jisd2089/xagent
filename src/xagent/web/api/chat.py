@@ -1835,6 +1835,132 @@ async def create_task(
         db.commit()
         db.refresh(task)
 
+        # Sync execution: if sync=True, execute the task immediately and return full results
+        if request.sync:
+            logger.info(
+                f"Sync execution requested for task {task.id}, starting execution..."
+            )
+            try:
+                # Update task status to RUNNING
+                task.status = TaskStatus.RUNNING
+                db.commit()
+
+                agent_manager = get_agent_manager(request)
+
+                with UserContext(int(user.id)):
+                    # Get agent service
+                    agent_service = await agent_manager.get_agent_for_task(
+                        int(task.id), db, user=user
+                    )
+
+                    # Execute task
+                    task_description = task.description or task.title
+                    logger.info(
+                        f"Executing sync task {task.id}: {task_description[:100]}..."
+                    )
+                    result = await agent_manager.execute_task(
+                        agent_service=agent_service,
+                        task=task_description,
+                        context={},
+                        task_id=str(task.id),
+                        tracking_task_id=str(task.id),
+                        db_session=db,
+                    )
+
+                # Extract output
+                chat_response = result.get("chat_response")
+                if isinstance(chat_response, dict):
+                    output_text = chat_response.get("message") or result.get(
+                        "output", ""
+                    )
+                else:
+                    output_text = result.get("output", "")
+
+                # Extract steps and metrics from result
+                steps = result.get("steps") or result.get("execution_steps") or []
+                metrics = result.get("metrics") or {}
+                trace_id_val = result.get("trace_id") or getattr(
+                    task, "trace_id", None
+                )
+
+                # Update task status
+                if result.get("success", False):
+                    task.status = TaskStatus.COMPLETED
+                    # Persist assistant message
+                    try:
+                        from ..services.chat_history_service import (
+                            persist_assistant_message,
+                        )
+
+                        persist_assistant_message(
+                            db,
+                            task_id=int(task.id),
+                            user_id=int(user.id),
+                            content=output_text,
+                            message_type="final_answer",
+                            interactions=chat_response.get("interactions")
+                            if isinstance(chat_response, dict)
+                            else None,
+                        )
+                    except Exception as persist_err:
+                        logger.warning(
+                            f"Failed to persist assistant message for task {task.id}: {persist_err}"
+                        )
+                else:
+                    task.status = TaskStatus.FAILED
+                db.commit()
+
+                logger.info(
+                    f"Sync task {task.id} completed: status={task.status.value}, "
+                    f"output_len={len(output_text)}, steps_count={len(steps)}"
+                )
+
+                return TaskCreateResponse(
+                    task_id=task.id,
+                    title=task.title,
+                    status=task.status.value,
+                    created_at=format_datetime_for_api(task.created_at)
+                    if task.created_at
+                    else None,
+                    model_id=task.model_id,
+                    small_fast_model_id=task.small_fast_model_id,
+                    visual_model_id=task.visual_model_id,
+                    compact_model_id=task.compact_model_id,
+                    model_name=task.model_name,
+                    small_fast_model_name=task.small_fast_model_name,
+                    visual_model_name=task.visual_model_name,
+                    compact_model_name=task.compact_model_name,
+                    execution_mode=task.execution_mode,
+                    channel_id=task.channel_id,
+                    channel_name=task.channel_name,
+                    output=output_text,
+                    trace_id=trace_id_val,
+                    steps=steps,
+                    metrics=metrics,
+                )
+
+            except Exception as sync_err:
+                logger.error(
+                    f"Sync task {task.id} execution failed: {sync_err}", exc_info=True
+                )
+                try:
+                    task.status = TaskStatus.FAILED
+                    db.commit()
+                except Exception:
+                    pass
+                return TaskCreateResponse(
+                    task_id=task.id,
+                    title=task.title,
+                    status=TaskStatus.FAILED.value,
+                    created_at=format_datetime_for_api(task.created_at)
+                    if task.created_at
+                    else None,
+                    model_id=task.model_id,
+                    model_name=task.model_name,
+                    execution_mode=task.execution_mode,
+                    error=str(sync_err),
+                )
+
         return TaskCreateResponse(
             task_id=task.id,
             title=task.title,

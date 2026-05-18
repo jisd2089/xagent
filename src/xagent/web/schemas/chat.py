@@ -69,6 +69,7 @@ class TaskCreateRequest(BaseModel):
     examples: Optional[List[ExampleItem]] = (
         None  # Process mode: input/output examples (deprecated)
     )
+    sync: bool = False  # If True, execute task synchronously and return result
 
     @model_validator(mode="before")
     @classmethod
@@ -100,6 +101,11 @@ class TaskCreateResponse(BaseModel):
     execution_mode: Optional[str] = None
     channel_id: Optional[int] = None
     channel_name: Optional[str] = None
+    output: Optional[str] = None  # Sync execution result text
+    error: Optional[str] = None  # Sync execution error message
+    trace_id: Optional[str] = None  # Trace ID for cross-system tracing (53AIHub integration)
+    steps: Optional[List[Dict[str, Any]]] = None  # DAG plan steps with tool selection and execution status
+    metrics: Optional[Dict[str, Any]] = None  # Task-level metrics (elapsed, tokens, step_count)
 
 
 class ExecutionStatus(BaseModel):

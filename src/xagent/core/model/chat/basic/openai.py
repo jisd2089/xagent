@@ -63,6 +63,12 @@ class OpenAILLM(BaseLLM):
         """Get the list of abilities supported by this OpenAI LLM implementation."""
         return self._abilities
 
+    def _detect_deepseek(self) -> bool:
+        """Detect if the current model is a DeepSeek model (which lacks full json_schema support)."""
+        base_url_lower = self.base_url.lower()
+        model_name_lower = self._model_name.lower()
+        return "deepseek" in base_url_lower or "deepseek" in model_name_lower
+
     def _ensure_client(self) -> None:
         """Ensure the OpenAI client is initialized."""
         if self._client is None:
@@ -161,6 +167,15 @@ class OpenAILLM(BaseLLM):
             else:
                 # Pass through other output_config formats
                 completion_params["output_config"] = output_config
+
+        # Proactive compatibility: DeepSeek models do not support json_schema,
+        # fall back to json_object at the adapter layer to avoid wasted round-trips.
+        if completion_params.get("response_format", {}).get("type") == "json_schema":
+            if self._detect_deepseek():
+                logger.debug(
+                    "DeepSeek detected, proactively converting json_schema -> json_object"
+                )
+                completion_params["response_format"] = {"type": "json_object"}
 
         # Handle thinking mode using extra_body as specified in the requirements
         # Only add enable_thinking if the client supports this parameter (e.g., standard OpenAI)
@@ -329,11 +344,33 @@ class OpenAILLM(BaseLLM):
                 "response_format" in error_msg.lower()
                 and "response_format" in completion_params
             ):
-                # Remove response_format and retry
-                logger.warning(
-                    f"API doesn't support response_format, retrying without it. Error: {error_msg}"
-                )
-                completion_params.pop("response_format")
+                # Some providers (DeepSeek, etc.) don't support json_schema
+                # but do support json_object. Try json_object first.
+                current_format = completion_params.get("response_format", {})
+                if isinstance(current_format, dict) and current_format.get("type") == "json_schema":
+                    logger.warning(
+                        f"API doesn't support json_schema, falling back to json_object. Error: {error_msg}"
+                    )
+                    completion_params["response_format"] = {"type": "json_object"}
+                    try:
+                        response = await _make_api_call()
+                        return _process_response(response)
+                    except openai.BadRequestError as e2:
+                        error_msg2 = str(e2.message) if hasattr(e2, "message") else str(e2)
+                        if "response_format" in error_msg2.lower():
+                            logger.warning(
+                                f"API doesn't support json_object either, "
+                                f"retrying without response_format. Error: {error_msg2}"
+                            )
+                            completion_params.pop("response_format")
+                        else:
+                            raise RuntimeError(f"OpenAI bad request: {error_msg2}") from e2
+                else:
+                    # Non-json_schema format (e.g., json_object) also fails, strip completely
+                    logger.warning(
+                        f"API doesn't support response_format, retrying without it. Error: {error_msg}"
+                    )
+                    completion_params.pop("response_format")
 
                 # Retry the API call without response_format
                 response = await _make_api_call()
@@ -496,6 +533,15 @@ class OpenAILLM(BaseLLM):
                 # Pass through other output_config formats
                 completion_params["output_config"] = output_config
 
+        # Proactive compatibility: DeepSeek models do not support json_schema,
+        # fall back to json_object at the adapter layer to avoid wasted round-trips.
+        if completion_params.get("response_format", {}).get("type") == "json_schema":
+            if self._detect_deepseek():
+                logger.debug(
+                    "DeepSeek detected, proactively converting json_schema -> json_object"
+                )
+                completion_params["response_format"] = {"type": "json_object"}
+
         # Handle thinking mode using extra_body as specified in the requirements
         # Only add enable_thinking if the client supports this parameter (e.g., standard OpenAI)
         extra_body = {}
@@ -639,21 +685,44 @@ class OpenAILLM(BaseLLM):
                 "response_format" in error_msg.lower()
                 and "response_format" in completion_params
             ):
-                # Remove response_format and retry
-                logger.warning(
-                    f"API doesn't support response_format, retrying without it. Error: {error_msg}"
-                )
-                completion_params.pop("response_format")
+                async def _vision_retry():
+                    if extra_body:
+                        return await self._client.chat.completions.create(
+                            extra_body=extra_body, **completion_params
+                        )
+                    else:
+                        return await self._client.chat.completions.create(
+                            **completion_params
+                        )
 
-                # Retry the API call without response_format
-                if extra_body:
-                    response = await self._client.chat.completions.create(
-                        extra_body=extra_body, **completion_params
+                # Some providers (DeepSeek, etc.) don't support json_schema
+                # but do support json_object. Try json_object first.
+                current_format = completion_params.get("response_format", {})
+                if isinstance(current_format, dict) and current_format.get("type") == "json_schema":
+                    logger.warning(
+                        f"API doesn't support json_schema, falling back to json_object. Error: {error_msg}"
                     )
+                    completion_params["response_format"] = {"type": "json_object"}
+                    try:
+                        response = await _vision_retry()
+                    except openai.BadRequestError as e2:
+                        error_msg2 = str(e2.message) if hasattr(e2, "message") else str(e2)
+                        if "response_format" in error_msg2.lower():
+                            logger.warning(
+                                f"API doesn't support json_object either, "
+                                f"retrying without response_format. Error: {error_msg2}"
+                            )
+                            completion_params.pop("response_format")
+                            response = await _vision_retry()
+                        else:
+                            raise RuntimeError(f"OpenAI bad request: {error_msg2}") from e2
                 else:
-                    response = await self._client.chat.completions.create(
-                        **completion_params
+                    # Non-json_schema format also fails, strip completely
+                    logger.warning(
+                        f"API doesn't support response_format, retrying without it. Error: {error_msg}"
                     )
+                    completion_params.pop("response_format")
+                    response = await _vision_retry()
             else:
                 raise RuntimeError(f"OpenAI bad request: {error_msg}") from e
 
@@ -759,6 +828,15 @@ class OpenAILLM(BaseLLM):
                 # Pass through other output_config formats
                 completion_params["output_config"] = output_config
 
+        # Proactive compatibility: DeepSeek models do not support json_schema,
+        # fall back to json_object at the adapter layer to avoid wasted round-trips.
+        if completion_params.get("response_format", {}).get("type") == "json_schema":
+            if self._detect_deepseek():
+                logger.debug(
+                    "DeepSeek detected, proactively converting json_schema -> json_object"
+                )
+                completion_params["response_format"] = {"type": "json_object"}
+
         # Handle thinking mode
         is_thinking_only = (
             "thinking_mode" in self.abilities and "chat" not in self.abilities
@@ -804,20 +882,44 @@ class OpenAILLM(BaseLLM):
                     "response_format" in error_msg.lower()
                     and "response_format" in completion_params
                 ):
-                    # Remove response_format and retry
-                    logger.warning(
-                        f"API doesn't support response_format, retrying without it. Error: {error_msg}"
-                    )
-                    completion_params.pop("response_format")
+                    async def _stream_retry():
+                        if extra_body:
+                            return await self._client.chat.completions.create(
+                                extra_body=extra_body, **completion_params
+                            )
+                        else:
+                            return await self._client.chat.completions.create(
+                                **completion_params
+                            )
 
-                    if extra_body:
-                        stream = await self._client.chat.completions.create(
-                            extra_body=extra_body, **completion_params
+                    # Some providers (DeepSeek, etc.) don't support json_schema
+                    # but do support json_object. Try json_object first.
+                    current_format = completion_params.get("response_format", {})
+                    if isinstance(current_format, dict) and current_format.get("type") == "json_schema":
+                        logger.warning(
+                            f"API doesn't support json_schema, falling back to json_object. Error: {error_msg}"
                         )
+                        completion_params["response_format"] = {"type": "json_object"}
+                        try:
+                            stream = await _stream_retry()
+                        except openai.BadRequestError as e2:
+                            error_msg2 = str(e2.message) if hasattr(e2, "message") else str(e2)
+                            if "response_format" in error_msg2.lower():
+                                logger.warning(
+                                    f"API doesn't support json_object either, "
+                                    f"retrying without response_format. Error: {error_msg2}"
+                                )
+                                completion_params.pop("response_format")
+                                stream = await _stream_retry()
+                            else:
+                                raise
                     else:
-                        stream = await self._client.chat.completions.create(
-                            **completion_params
+                        # Non-json_schema format also fails, strip completely
+                        logger.warning(
+                            f"API doesn't support response_format, retrying without it. Error: {error_msg}"
                         )
+                        completion_params.pop("response_format")
+                        stream = await _stream_retry()
                 else:
                     raise
 
