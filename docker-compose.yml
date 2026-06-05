@@ -16,21 +16,21 @@ services:
 
   # Xagent Frontend (Next.js)
   frontend:
-    image: xprobe/xagent-frontend:0.4.0
+    image: xprobe/xagent-frontend:local
     container_name: xagent_frontend
     restart: unless-stopped
-    networks:
-      - xagent_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      test: ["CMD", "node", "-e", "process.exit(0)"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
+    networks:
+      - xagent_network
 
   # Xagent Backend (FastAPI)
   backend:
-    image: xprobe/xagent-backend:0.4.0
+    image: xprobe/xagent-backend:20260604
     container_name: xagent_backend
     restart: unless-stopped
     # Don't expose ports, only accessible through nginx

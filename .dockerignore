@@ -65,6 +65,10 @@ logs/
 .DS_Store
 Thumbs.db
 
+# Claude Code
+.claude/
+CLAUDE.md
+
 # Misc
 *.env
 *.local

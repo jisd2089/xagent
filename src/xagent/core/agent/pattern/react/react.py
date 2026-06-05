@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import json
+import re
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from enum import Enum
@@ -326,6 +327,7 @@ class ReActPattern(AgentPattern):
                     assistant_content or "",
                     tool_calls=normalized.get("raw_tool_calls")
                     or normalized.get("tool_calls"),
+                    reasoning_content=normalized.get("reasoning_content"),
                 )
 
             tool_calls = normalized.get("tool_calls", [])
@@ -591,6 +593,7 @@ class ReActPattern(AgentPattern):
             "raw_tool_calls": response.get("tool_calls", []),
             "done": bool(done),
             "raw": response,
+            "reasoning_content": response.get("reasoning_content"),
         }
 
     def _normalize_tool_calls(self, tool_calls: list[Any]) -> list[dict[str, Any]]:
@@ -1226,12 +1229,18 @@ class ReActPattern(AgentPattern):
     def _tool_name(self, tool: Any) -> str:
         metadata = getattr(tool, "metadata", None)
         if metadata is not None and getattr(metadata, "name", None):
-            return str(metadata.name)
-        if getattr(tool, "name", None):
-            return str(tool.name)
-        if getattr(tool, "__name__", None):
-            return str(tool.__name__)
-        raise ValueError(f"Tool {tool!r} is missing a name.")
+            raw = str(metadata.name)
+        elif getattr(tool, "name", None):
+            raw = str(tool.name)
+        elif getattr(tool, "__name__", None):
+            raw = str(tool.__name__)
+        else:
+            raise ValueError(f"Tool {tool!r} is missing a name.")
+        # Sanitize: OpenAI requires function names matching ^[a-zA-Z0-9_-]+$
+        sanitized = re.sub(r"[^a-zA-Z0-9_-]", "_", raw)
+        if not sanitized or not re.match(r"^[a-zA-Z0-9_-]+$", sanitized):
+            sanitized = f"tool_{abs(hash(raw)) % 10**8}"
+        return sanitized
 
     def _tool_description(self, tool: Any) -> str:
         metadata = getattr(tool, "metadata", None)

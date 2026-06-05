@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -1313,10 +1314,16 @@ class DAGPattern(AgentPattern):
     def _tool_name(self, tool: Any) -> str:
         metadata = getattr(tool, "metadata", None)
         if metadata is not None and getattr(metadata, "name", None):
-            return str(metadata.name)
-        if getattr(tool, "name", None):
-            return str(tool.name)
-        return str(tool)
+            raw = str(metadata.name)
+        elif getattr(tool, "name", None):
+            raw = str(tool.name)
+        else:
+            raw = str(tool)
+        # Sanitize: OpenAI requires function names matching ^[a-zA-Z0-9_-]+$
+        sanitized = re.sub(r"[^a-zA-Z0-9_-]", "_", raw)
+        if not sanitized or not re.match(r"^[a-zA-Z0-9_-]+$", sanitized):
+            sanitized = f"tool_{abs(hash(raw)) % 10**8}"
+        return sanitized
 
     async def _cancel_pending_steps(
         self,

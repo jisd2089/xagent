@@ -623,7 +623,7 @@ class AutoPattern(AgentPattern):
                     llm,
                     messages=messages,
                     tools=decision_tools,
-                    tool_choice="required",
+                    tool_choice="auto",
                     thinking={"type": "disabled", "enable": False},
                 )
             except Exception as exc:

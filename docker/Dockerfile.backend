@@ -16,11 +16,13 @@ WORKDIR /opt/xagent
 
 # Use APT mirror if provided (for faster downloads in China)
 RUN if [ -n "$APT_MIRROR" ]; then \
-        sed -i "s|http://deb.debian.org/debian|$APT_MIRROR|g" /etc/apt/sources.list.d/debian.sources \
+        sed -i "s|^URIs: http://deb.debian.org/debian$|URIs: $APT_MIRROR|" /etc/apt/sources.list.d/debian.sources \
+        && sed -i "s|^URIs: http://deb.debian.org/debian-security|URIs: ${APT_MIRROR}-security|" /etc/apt/sources.list.d/debian.sources \
         || sed -i "s|http://deb.debian.org/debian|$APT_MIRROR|g" /etc/apt/sources.list; \
     fi
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=120 update \
+    && apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=120 install -y --no-install-recommends \
     build-essential \
     ca-certificates \
     gcc \
@@ -59,9 +61,52 @@ RUN /opt/venv/bin/pip install --no-cache-dir ${PYPI_INDEX_URL:+--index-url $PYPI
 COPY src ./src
 COPY alembic.ini .
 
-# Install app + deepdoc into venv
-RUN /opt/venv/bin/pip install --no-cache-dir ${PYPI_INDEX_URL:+--index-url $PYPI_INDEX_URL} ".[all]" \
-    && /opt/venv/bin/deepdoc-download-models
+# Install app into venv (cached if pyproject.toml + src unchanged)
+RUN /opt/venv/bin/pip install --no-cache-dir ${PYPI_INDEX_URL:+--index-url $PYPI_INDEX_URL} ".[all]"
+
+# Pre-download NLTK data (needed by deepdoc)
+RUN mkdir -p /root/.cache/deepdoc/nltk_data/tokenizers \
+    /root/.cache/deepdoc/nltk_data/taggers \
+    && /opt/venv/bin/python -c "\
+import nltk; \
+nltk.download('averaged_perceptron_tagger', download_dir='/root/.cache/deepdoc/nltk_data'); \
+nltk.download('punkt', download_dir='/root/.cache/deepdoc/nltk_data'); \
+nltk.download('punkt_tab', download_dir='/root/.cache/deepdoc/nltk_data')" \
+    || true \
+    && for pkg_url in \
+         "taggers/averaged_perceptron_tagger" \
+         "tokenizers/punkt" \
+         "tokenizers/punkt_tab"; do \
+         dir="/root/.cache/deepdoc/nltk_data/$(dirname $pkg_url)"; \
+         name="$(basename $pkg_url)"; \
+         if [ ! -d "$dir/$name" ] && [ ! -f "$dir/$name.zip" ]; then \
+           mkdir -p "$dir"; \
+           curl -fSL --retry 5 --retry-delay 10 -o "$dir/$name.zip" \
+             "https://raw.githubusercontent.com/nltk/nltk_data/gh-pages/packages/$pkg_url.zip" \
+           || curl -fSL --retry 5 --retry-delay 10 -o "$dir/$name.zip" \
+             "https://github.com/nltk/nltk_data/raw/gh-pages/packages/$pkg_url.zip" \
+           || true; \
+           if [ -f "$dir/$name.zip" ]; then \
+             unzip -o "$dir/$name.zip" -d "$dir/" && rm -f "$dir/$name.zip"; \
+           fi; \
+         fi; \
+       done
+
+# Pre-download tiktoken BPE data (needed by deepdoc, often times out from China)
+RUN mkdir -p /root/.cache/deepdoc/tiktoken_cache \
+    && for pair in "9b5ad71b2ce5302211f9c61530b329a4922fc6a4:cl100k_base" "fb54f4051a391c35ac35dd1a1f5ea81ce7db3b77:o200k_base" "39b5fbb41a82eb1a3a0b8b8d6e2e8e934e1c0f07:p50k_base"; do \
+         hash="${pair%%:*}"; name="${pair##*:}"; \
+         if [ ! -f "/root/.cache/deepdoc/tiktoken_cache/$hash" ]; then \
+           curl -fSL --retry 5 --retry-delay 10 --connect-timeout 30 --max-time 300 \
+             -o "/root/.cache/deepdoc/tiktoken_cache/$hash" \
+             "https://openaipublic.blob.core.windows.net/encodings/${name}.tiktoken" || true; \
+         fi; \
+       done
+
+# Download deepdoc models (vision ONNX + XGBoost)
+RUN DEEPDOC_NLTK_DATA_DIR=/root/.cache/deepdoc/nltk_data \
+    TIKTOKEN_CACHE_DIR=/root/.cache/deepdoc/tiktoken_cache \
+    /opt/venv/bin/deepdoc-download-models
 
 ############################
 # Runtime
@@ -84,12 +129,14 @@ WORKDIR /opt/xagent
 
 # Use APT mirror if provided (for faster downloads in China)
 RUN if [ -n "$APT_MIRROR" ]; then \
-        sed -i "s|http://deb.debian.org/debian|$APT_MIRROR|g" /etc/apt/sources.list.d/debian.sources \
+        sed -i "s|^URIs: http://deb.debian.org/debian$|URIs: $APT_MIRROR|" /etc/apt/sources.list.d/debian.sources \
+        && sed -i "s|^URIs: http://deb.debian.org/debian-security|URIs: ${APT_MIRROR}-security|" /etc/apt/sources.list.d/debian.sources \
         || sed -i "s|http://deb.debian.org/debian|$APT_MIRROR|g" /etc/apt/sources.list; \
     fi
 
 # System deps + Node.js + LibreOffice + Xvfb (for headless browser/screenshots)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=120 update \
+    && apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=120 install -y --no-install-recommends \
     ca-certificates \
     curl \
     docker.io \

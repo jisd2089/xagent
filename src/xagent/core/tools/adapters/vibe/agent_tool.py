@@ -3,6 +3,7 @@ Agent Tool - Convert published agents into callable tools
 """
 
 import logging
+import re
 from typing import TYPE_CHECKING, Any, Mapping, Optional, Type
 from uuid import uuid4
 
@@ -1128,6 +1129,7 @@ class AgentTool(AbstractBaseTool):
         user_id: int,
         task_id: Optional[str] = None,
         workspace_base_dir: Optional[str] = None,
+        tool_name_override: Optional[str] = None,
     ):
         """
         Initialize an agent tool.
@@ -1140,6 +1142,7 @@ class AgentTool(AbstractBaseTool):
             user_id: User ID for model access
             task_id: Task ID for workspace isolation
             workspace_base_dir: Base directory for workspace files
+            tool_name_override: Optional pre-computed unique tool name (used for dedup)
         """
         self._agent_id = agent_id
         self._agent_name = agent_name
@@ -1150,12 +1153,15 @@ class AgentTool(AbstractBaseTool):
         if workspace_base_dir is None:
             workspace_base_dir = str(get_uploads_dir())
         self._workspace_base_dir = workspace_base_dir
+        self._tool_name_override = tool_name_override
         self._visibility = ToolVisibility.PUBLIC
 
     @property
     def name(self) -> str:
         """Tool name."""
-        return f"call_agent_{self._agent_name.lower().replace(' ', '_')}"
+        if self._tool_name_override:
+            return self._tool_name_override
+        return gen_agent_tool_name(self._agent_name)
 
     @property
     def description(self) -> str:
@@ -1407,7 +1413,12 @@ def gen_agent_tool_name(agent_name: str) -> str:
     Returns:
         The tool name that will be used for this agent
     """
-    return f"call_agent_{agent_name.lower().replace(' ', '_')}"
+    # OpenAI requires function names matching ^[a-zA-Z0-9_-]+$
+    raw = agent_name.lower().replace(" ", "_")
+    sanitized = re.sub(r"[^a-zA-Z0-9_-]", "_", raw)
+    if not sanitized:
+        sanitized = f"agent_{abs(hash(agent_name)) % 10**8}"
+    return f"call_agent_{sanitized}"
 
 
 def get_published_agents_tools(
@@ -1527,6 +1538,34 @@ def get_published_agents_tools(
             )
             tools.append(tool)
             logger.debug(f"Created agent tool: {tool.name}")
+
+        # Deduplicate tool names: sanitization can collapse different agent
+        # names (e.g. Chinese names) into identical strings.  Append a
+        # numeric suffix (_2, _3, ...) to keep every name unique.
+        seen_names: dict[str, int] = {}
+        deduped_tools: list[AbstractBaseTool] = []
+        for tool in tools:
+            base_name = tool.name
+            if base_name in seen_names:
+                seen_names[base_name] += 1
+                unique_name = f"{base_name}_{seen_names[base_name]}"
+                tool = AgentTool(
+                    agent_id=tool._agent_id,
+                    agent_name=tool._agent_name,
+                    agent_description=tool._agent_description,
+                    db=tool._db,
+                    user_id=tool._user_id,
+                    task_id=tool._task_id,
+                    workspace_base_dir=tool._workspace_base_dir,
+                    tool_name_override=unique_name,
+                )
+                logger.info(
+                    f"Deduplicated agent tool name: {base_name} -> {unique_name}"
+                )
+            else:
+                seen_names[base_name] = 1
+            deduped_tools.append(tool)
+        tools = deduped_tools
 
     except Exception as e:
         logger.error(f"Failed to load agents as tools: {e}", exc_info=True)

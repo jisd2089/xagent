@@ -79,6 +79,7 @@ class ToolRegistry:
                 translate_json,
                 vision_tool,
                 web_ingestion_tool,
+                wiki_tools,
                 workspace_file_tool,
             )
 

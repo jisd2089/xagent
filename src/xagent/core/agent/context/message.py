@@ -21,6 +21,7 @@ class Message:
     tool_call_id: str | None = None
     hidden: bool = False
     output_tokens: int | None = None
+    reasoning_content: str | None = None
 
     @classmethod
     def role_system(cls, content: str, **kwargs: Any) -> "Message":
@@ -46,6 +47,8 @@ class Message:
             result["tool_call_id"] = self.tool_call_id
         if self.hidden:
             result["hidden"] = True
+        if self.reasoning_content:
+            result["reasoning_content"] = self.reasoning_content
         return result
 
     def __hash__(self) -> int:
@@ -62,7 +65,7 @@ class Message:
             for tool_call in self.tool_calls or []
             if isinstance(tool_call, dict)
         )
-        return (self.role, self.content, tool_call_ids, self.tool_call_id)
+        return (self.role, self.content, tool_call_ids, self.tool_call_id, self.reasoning_content)
 
 
 @dataclass

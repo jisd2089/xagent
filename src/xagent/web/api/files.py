@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import mimetypes
+import urllib.parse
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Dict, Optional, Tuple
@@ -749,12 +750,12 @@ async def download_file(
         else "attachment"
     )
 
+    encoded_filename = urllib.parse.quote(file_name, safe='')
     return FileResponse(
         path=str(full_path),
-        filename=file_name,
         media_type=media_type,
         headers={
-            "Content-Disposition": f'{content_disposition}; filename="{file_name}"'
+            "Content-Disposition": f"{content_disposition}; filename*=UTF-8''{encoded_filename}"
         },
     )
 

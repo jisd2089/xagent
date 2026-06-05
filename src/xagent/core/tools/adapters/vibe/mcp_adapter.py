@@ -7,6 +7,7 @@ enabling MCP tools to be used in DAG plan-execute patterns and other agent workf
 import asyncio
 import logging
 import os
+import re
 from typing import Any, Dict, List, Mapping, Optional, Type
 
 from mcp.types import Tool as MCPTool
@@ -93,9 +94,11 @@ class MCPToolAdapter(AbstractBaseTool):
     def name(self) -> str:
         """Get tool name with optional prefix, formatted for LLM requirements."""
         raw_name = f"{self._name_prefix}{self.mcp_tool.name}"
-        # Replace spaces and dashes with underscores to match LLM tool naming constraints
-        # This matches the frontend/chat.py filtering logic
-        return raw_name.replace(" ", "_").replace("-", "_")
+        # OpenAI requires function names matching ^[a-zA-Z0-9_-]+$
+        sanitized = re.sub(r"[^a-zA-Z0-9_-]", "_", raw_name)
+        if not sanitized:
+            sanitized = f"mcp_tool_{abs(hash(raw_name)) % 10**8}"
+        return sanitized
 
     @property
     def description(self) -> str:

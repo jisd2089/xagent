@@ -201,71 +201,68 @@ class LLMPlanGenerator(PlanGenerator):
         llm: Any,
     ) -> ExecutionPlan:
         plan_tools = [self._plan_tool_schema()]
-        response = await llm.chat(
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "Generate a DAG execution plan by calling the "
-                        f"{self.PLAN_TOOL_NAME} tool exactly once. Each step requires "
-                        '"id", "task", "dependencies", "termination_condition", '
-                        '"completion_evidence", and "tool_names"; "description" is '
-                        "optional but strongly recommended. "
-                        "dependencies is required for every step; "
-                        "use an empty array only for true entry steps that do not "
-                        "need any prior output. If a step uses data, files, decisions, "
-                        "analysis, or artifacts produced by another step, it must "
-                        "depend on that producing step. For example, screenshot or "
-                        "render steps must depend on the step that creates the HTML "
-                        "or file they render, and final synthesis steps must depend "
-                        "on the research or build steps they summarize. Use task as "
-                        "the short node title, "
-                        "description for the concrete work to perform, and tool_names "
-                        "for the step's suggested execution tool scope. Use "
-                        "termination_condition for the exact stop rule that tells the "
-                        "step executor when this step is done and what it must report. "
-                        "The termination_condition must be concrete and action-specific; "
-                        "do not use vague wording such as 'when complete' or 'when the "
-                        "task is done'. For artifact-producing steps, name an exact path "
-                        "only when the user requires that path or the tool accepts it as "
-                        "an argument; otherwise refer to the artifact returned by the "
-                        "tool. State that the step must call final_answer after the "
-                        "condition is satisfied. Put review, "
-                        "verification, rendering, optimization, and final synthesis in "
-                        "separate dependent steps unless this step explicitly owns that "
-                        "work. Use completion_evidence for a short natural-language "
-                        "proof that this specific step is done, usually naming the "
-                        "successful tool result fields to check. Do not use global "
-                        "effect labels or invented fixed filenames. For auto-named "
-                        "outputs, say that the tool returned a usable path. Keep "
-                        "completion_evidence under 160 characters. If a workflow needs "
-                        "several tool actions and only the last one proves completion, "
-                        "split those actions into dependent steps. Few-shot examples: "
-                        "auto-named output evidence: 'The generator returned success=true "
-                        "and a non-empty path or URL for the created asset.' explicit "
-                        "path evidence: 'The writer returned success=true for the "
-                        "requested output path.' non-file evidence: 'The tool returned "
-                        "the requested answer data successfully.' tool_names "
-                        "must only contain exact names from available_tool_names. "
-                        "Include the best matching available tools for every step "
-                        "that needs tool use. Leave tool_names empty only for pure "
-                        "reasoning, summarization, or formatting steps that can be "
-                        "completed from provided context and dependency results. Do "
-                        "not put skill names, artifact types, programming languages, "
-                        "or made-up tools in tool_names. tool_names are not hard "
-                        "limits, but they define the expected tool scope for the "
-                        "step executor; choose them carefully so the executor does "
-                        "not need to perform sibling or downstream step work. "
-                        "Keep ids stable "
-                        "across replans when a completed step can be reused."
-                    ),
-                },
-                {"role": "user", "content": self._build_prompt(request)},
-            ],
-            tools=plan_tools,
-            tool_choice="required",
-            thinking={"type": "disabled", "enable": False},
-        )
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "Generate a DAG execution plan by calling the "
+                    f"{self.PLAN_TOOL_NAME} tool exactly once. Each step requires "
+                    '"id", "task", "dependencies", "termination_condition", '
+                    '"completion_evidence", and "tool_names"; "description" is '
+                    "optional but strongly recommended. "
+                    "dependencies is required for every step; "
+                    "use an empty array only for true entry steps that do not "
+                    "need any prior output. If a step uses data, files, decisions, "
+                    "analysis, or artifacts produced by another step, it must "
+                    "depend on that producing step. For example, screenshot or "
+                    "render steps must depend on the step that creates the HTML "
+                    "or file they render, and final synthesis steps must depend "
+                    "on the research or build steps they summarize. Use task as "
+                    "the short node title, "
+                    "description for the concrete work to perform, and tool_names "
+                    "for the step's suggested execution tool scope. Use "
+                    "termination_condition for the exact stop rule that tells the "
+                    "step executor when this step is done and what it must report. "
+                    "The termination_condition must be concrete and action-specific; "
+                    "do not use vague wording such as 'when complete' or 'when the "
+                    "task is done'. For artifact-producing steps, name an exact path "
+                    "only when the user requires that path or the tool accepts it as "
+                    "an argument; otherwise refer to the artifact returned by the "
+                    "tool. State that the step must call final_answer after the "
+                    "condition is satisfied. Put review, "
+                    "verification, rendering, optimization, and final synthesis in "
+                    "separate dependent steps unless this step explicitly owns that "
+                    "work. Use completion_evidence for a short natural-language "
+                    "proof that this specific step is done, usually naming the "
+                    "successful tool result fields to check. Do not use global "
+                    "effect labels or invented fixed filenames. For auto-named "
+                    "outputs, say that the tool returned a usable path. Keep "
+                    "completion_evidence under 160 characters. If a workflow needs "
+                    "several tool actions and only the last one proves completion, "
+                    "split those actions into dependent steps. Few-shot examples: "
+                    "auto-named output evidence: 'The generator returned success=true "
+                    "and a non-empty path or URL for the created asset.' explicit "
+                    "path evidence: 'The writer returned success=true for the "
+                    "requested output path.' non-file evidence: 'The tool returned "
+                    "the requested answer data successfully.' tool_names "
+                    "must only contain exact names from available_tool_names. "
+                    "Include the best matching available tools for every step "
+                    "that needs tool use. Leave tool_names empty only for pure "
+                    "reasoning, summarization, or formatting steps that can be "
+                    "completed from provided context and dependency results. Do "
+                    "not put skill names, artifact types, programming languages, "
+                    "or made-up tools in tool_names. tool_names are not hard "
+                    "limits, but they define the expected tool scope for the "
+                    "step executor; choose them carefully so the executor does "
+                    "not need to perform sibling or downstream step work. "
+                    "Keep ids stable "
+                    "across replans when a completed step can be reused."
+                ),
+            },
+            {"role": "user", "content": self._build_prompt(request)},
+        ]
+
+        response = await self._call_plan_llm(llm, messages, plan_tools)
         plan = coerce_execution_plan(
             self._extract_tool_arguments(response, self.PLAN_TOOL_NAME)
         )
@@ -273,6 +270,38 @@ class LLMPlanGenerator(PlanGenerator):
             plan=plan,
             available_tool_names=request.available_tool_names,
         )
+
+    async def _call_plan_llm(self, llm, messages, plan_tools):
+        """Call LLM for plan generation with graceful degradation.
+
+        Some models (e.g. deepseek-reasoner) do not support tool_choice or
+        thinking parameters.  When the primary call fails, retry without
+        those parameters before giving up.
+        """
+        primary_params: dict[str, Any] = dict(
+            messages=messages,
+            tools=plan_tools,
+            tool_choice="auto",
+            thinking={"type": "disabled", "enable": False},
+        )
+        try:
+            return await llm.chat(**primary_params)
+        except Exception as exc:
+            error_text = str(exc).lower()
+            degraded = (
+                "tool_choice" in error_text
+                or "does not support" in error_text
+                or "thinking" in error_text
+            )
+            if not degraded:
+                raise
+
+            logger.warning(
+                "Plan generation failed with tool_choice/thinking parameters "
+                "(%s). Retrying without them.",
+                str(exc)[:300],
+            )
+            return await llm.chat(messages=messages, tools=plan_tools)
 
     def _filter_suggested_tools(
         self,

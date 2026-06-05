@@ -36,6 +36,7 @@ from .api.v1 import v1_router
 from .api.v1.errors import V1ApiError, v1_api_error_handler
 from .api.websocket import ws_router
 from .api.widget import widget_router
+from .api.wiki import wiki_router
 from .dynamic_memory_store import get_memory_store
 from .logging_config import setup_logging
 from .models.database import init_db
@@ -235,6 +236,7 @@ app.include_router(templates_router)
 app.include_router(agents_router)
 app.include_router(channel_router, prefix="/api/channels", tags=["Channels"])
 app.include_router(widget_router)
+app.include_router(wiki_router)
 # Public SDK surface, mounted under /v1. Auth via xag_* API key,
 # error envelope {"error": {"code", "message"}}. See web/api/v1/.
 app.include_router(v1_router)
@@ -286,6 +288,44 @@ async def startup_event() -> None:
     logger.info(
         f"Memory store similarity threshold: {store_info['similarity_threshold']}"
     )
+
+    # Initialize Wiki Engine (Karpathy Obsidian-Wiki workflow)
+    try:
+        from pathlib import Path
+
+        from ..core.wiki.config import WikiConfig
+        from ..core.wiki.engine import WikiEngine
+        from .services.llm_utils import create_llm_from_env
+
+        wiki_dir = Path(os.getenv("WIKI_DIR", "/root/.xagent/wiki"))
+        wiki_config = WikiConfig(
+            wiki_dir=wiki_dir,
+            namespace=os.getenv("WIKI_NAMESPACE", "default"),
+        )
+        wiki_config.ensure_dirs()
+
+        # Get a real LLM instance from environment/config
+        _real_llm = create_llm_from_env()
+        if _real_llm is None:
+            raise RuntimeError("No LLM available (set OPENAI_API_KEY or configure models in DB)")
+
+        # Bridge BaseLLM.chat(messages) to Wiki compiler's callable interface
+        async def _wiki_llm(prompt: str, *, system: str = "", temperature: float = 0.3) -> str:
+            messages = []
+            if system:
+                messages.append({"role": "system", "content": system})
+            messages.append({"role": "user", "content": prompt})
+            result = await _real_llm.chat(messages, temperature=temperature)
+            if isinstance(result, dict):
+                return result.get("content", str(result))
+            return str(result)
+
+        app.state.wiki_engine = WikiEngine.from_config(wiki_config, _wiki_llm)
+        logger.info(f"Wiki Engine initialized with real LLM (dir={wiki_dir})")
+    except Exception as e:
+        logger.warning(f"Wiki Engine initialization skipped: {e}")
+        app.state.wiki_engine = None
+
 
     # Auto-migrate LanceDB tables if needed (for multi-tenancy support)
     # Controlled by LANCEDB_AUTO_MIGRATE environment variable (default: true)

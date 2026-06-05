@@ -85,8 +85,11 @@ class CustomApiTool(AbstractBaseTool):
         body: Optional[str] = None,
         visibility: ToolVisibility = ToolVisibility.PUBLIC,
     ):
-        # Format name for LLM (replace spaces/dashes with underscores)
-        sanitized_name = name.replace(" ", "_").replace("-", "_")
+        # Format name for LLM (replace any non-alphanumeric chars with underscores)
+        # OpenAI requires function names matching ^[a-zA-Z0-9_-]+$
+        sanitized_name = re.sub(r"[^a-zA-Z0-9_]", "_", name)
+        if not sanitized_name:
+            sanitized_name = f"custom_{abs(hash(name)) % 10**8}"
         # Ensure name doesn't start with api_ twice if already prefixed
         if sanitized_name.startswith("api_"):
             self._name = f"{sanitized_name}_call"
