@@ -37,6 +37,16 @@ class CustomApiToolArgs(BaseModel):
         default=None,
         description="JSON body for the request. You can use variables like $SECRET_KEY in string values.",
     )
+    timeout: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="Request timeout in seconds. Use a larger value for long-running or streaming APIs.",
+    )
+    retry_count: Optional[int] = Field(
+        default=None,
+        ge=0,
+        description="Number of retries after the initial request fails.",
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -164,6 +174,30 @@ class CustomApiTool(AbstractBaseTool):
             return [self._replace_secrets(v) for v in value]
         return value
 
+    def _load_default_body(self) -> Any:
+        if not self._default_body:
+            return None
+
+        try:
+            return json.loads(self._default_body)
+        except json.JSONDecodeError:
+            return self._default_body
+
+    def _merge_body_values(self, default_body: Any, call_body: Any) -> Any:
+        """Merge caller body into configured body without dropping fixed fields."""
+        if default_body is None:
+            return call_body
+        if call_body is None:
+            return default_body
+
+        if isinstance(default_body, dict) and isinstance(call_body, dict):
+            merged = dict(default_body)
+            for key, value in call_body.items():
+                merged[key] = self._merge_body_values(merged.get(key), value)
+            return merged
+
+        return call_body
+
     async def run_json_async(self, args: Mapping[str, Any]) -> Any:
         try:
             parsed_args = CustomApiToolArgs(**args)
@@ -187,24 +221,25 @@ class CustomApiTool(AbstractBaseTool):
                 self._replace_secrets(parsed_args.params) if parsed_args.params else {}
             )
 
-            body = None
-            if parsed_args.body:
-                body = self._replace_secrets(parsed_args.body)
-            elif self._default_body:
-                # Parse default body string if it exists
-                try:
-                    body = self._replace_secrets(json.loads(self._default_body))
-                except json.JSONDecodeError:
-                    body = self._replace_secrets(self._default_body)
+            default_body = self._load_default_body()
+            body = self._merge_body_values(default_body, parsed_args.body)
+            if body is not None:
+                body = self._replace_secrets(body)
+
+            call_kwargs = {
+                "url": url,
+                "method": parsed_args.method or self._default_method,
+                "headers": headers,
+                "params": params,
+                "body": body,
+            }
+            if parsed_args.timeout is not None:
+                call_kwargs["timeout"] = parsed_args.timeout
+            if parsed_args.retry_count is not None:
+                call_kwargs["retry_count"] = parsed_args.retry_count
 
             # Execute API call
-            result = await call_api(
-                url=url,
-                method=parsed_args.method or self._default_method,
-                headers=headers,
-                params=params,
-                body=body,
-            )
+            result = await call_api(**call_kwargs)
 
             if not result.get("success"):
                 logger.warning(f"Custom API {self._name} failed: {result.get('error')}")

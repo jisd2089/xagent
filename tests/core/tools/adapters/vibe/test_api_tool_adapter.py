@@ -137,6 +137,49 @@ async def test_run_json_async_uses_configured_endpoint_defaults():
 
 
 @pytest.mark.asyncio
+async def test_run_json_async_passes_timeout_and_retry_count_when_requested():
+    with (
+        patch(
+            "xagent.core.tools.adapters.vibe.api_tool_adapter.decrypt_value",
+            side_effect=lambda x: x,
+        ),
+        patch(
+            "xagent.core.tools.adapters.vibe.api_tool_adapter.call_api"
+        ) as mock_call_api,
+    ):
+        mock_call_api.return_value = {
+            "success": True,
+            "status_code": 200,
+            "headers": {},
+            "body": {"data": "test"},
+            "error": None,
+        }
+
+        tool = CustomApiTool(
+            name="LongRunningAPI",
+            description="test",
+            env={},
+            url="https://api.example.com/long-running",
+            method="POST",
+        )
+
+        res = await tool.run_json_async(
+            {"body": {"name": "Ada"}, "timeout": 180, "retry_count": 0}
+        )
+        assert res["success"] is True
+
+        mock_call_api.assert_called_once_with(
+            url="https://api.example.com/long-running",
+            method="POST",
+            headers={},
+            params={},
+            body={"name": "Ada"},
+            timeout=180,
+            retry_count=0,
+        )
+
+
+@pytest.mark.asyncio
 async def test_run_json_async_merges_configured_and_call_headers():
     with (
         patch(
@@ -183,6 +226,135 @@ async def test_run_json_async_merges_configured_and_call_headers():
             },
             params={},
             body=None,
+        )
+
+
+@pytest.mark.asyncio
+async def test_run_json_async_merges_configured_and_call_body():
+    with (
+        patch(
+            "xagent.core.tools.adapters.vibe.api_tool_adapter.decrypt_value",
+            side_effect=lambda x: x,
+        ),
+        patch(
+            "xagent.core.tools.adapters.vibe.api_tool_adapter.call_api"
+        ) as mock_call_api,
+    ):
+        mock_call_api.return_value = {
+            "success": True,
+            "status_code": 200,
+            "headers": {},
+            "body": {"data": "test"},
+            "error": None,
+        }
+
+        tool = CustomApiTool(
+            name="AIHubWorkflow",
+            description="Invoke a 53AIHub workflow agent",
+            env={"AIHUB_TOKEN": "secret", "TRACE_ID": "trace-default"},
+            url="https://aihub.example.com/v1/workflow/run",
+            method="POST",
+            headers={"Authorization": "Bearer $AIHUB_TOKEN"},
+            body=(
+                '{"model":"agent-13","stream":false,'
+                '"parameters":{"trace_id":"$TRACE_ID"}}'
+            ),
+        )
+
+        res = await tool.run_json_async(
+            {
+                "body": {
+                    "conversation_id": 619,
+                    "parameters": {
+                        "resume_file_id": "file_id:175",
+                        "trace_id": "trace-runtime",
+                    },
+                }
+            }
+        )
+        assert res["success"] is True
+
+        mock_call_api.assert_called_once_with(
+            url="https://aihub.example.com/v1/workflow/run",
+            method="POST",
+            headers={"Authorization": "Bearer secret"},
+            params={},
+            body={
+                "model": "agent-13",
+                "stream": False,
+                "conversation_id": 619,
+                "parameters": {
+                    "trace_id": "trace-runtime",
+                    "resume_file_id": "file_id:175",
+                },
+            },
+        )
+
+
+@pytest.mark.asyncio
+async def test_run_json_async_supports_configured_coze_stream_workflow_body():
+    with (
+        patch(
+            "xagent.core.tools.adapters.vibe.api_tool_adapter.decrypt_value",
+            side_effect=lambda x: x,
+        ),
+        patch(
+            "xagent.core.tools.adapters.vibe.api_tool_adapter.call_api"
+        ) as mock_call_api,
+    ):
+        mock_call_api.return_value = {
+            "success": True,
+            "status_code": 200,
+            "headers": {"content-type": "text/event-stream"},
+            "body": "event:Done\ndata:{}",
+            "error": None,
+        }
+
+        tool = CustomApiTool(
+            name="Coze Stream Workflow",
+            description="Invoke a Coze workflow with the configured request body",
+            env={"COZE_TOKEN": "secret"},
+            url="https://api.coze.cn/v1/workflow/stream_run",
+            method="POST",
+            headers={
+                "Authorization": "Bearer $COZE_TOKEN",
+                "Content-Type": "application/json",
+            },
+            body=(
+                '{"workflow_id":"7648982443038703656",'
+                '"app_id":"7648929438155210767",'
+                '"parameters":{'
+                '"chengshi_in":"上海",'
+                '"guihua_fangxiang":"AI大模型",'
+                '"input":"https://p9-bot-workflow-sign.byteimg.com/tos-cn-i-mdko3gqilj/35a502eb00fa411da13bbcc8ab472df2.pdf~tplv-mdko3gqilj-image.image?rk3s=81d4c505&x-expires=1812022967&x-signature=bjYJK1hLorUemG2xziNsezuJK9k%3D&x-wf-file_name=21%E5%B1%8A++%E5%BC%A0%E6%81%BA%E6%98%8E+%E4%B8%AA%E4%BA%BA%E7%AE%80%E5%8E%86.pdf",'
+                '"mubiao_gangwei":"AI产品经理",'
+                '"xinzi_in":"10k"'
+                "}}"
+            ),
+        )
+
+        res = await tool.run_json_async({})
+        assert res["success"] is True
+
+        mock_call_api.assert_called_once_with(
+            url="https://api.coze.cn/v1/workflow/stream_run",
+            method="POST",
+            headers={
+                "Authorization": "Bearer secret",
+                "Content-Type": "application/json",
+            },
+            params={},
+            body={
+                "workflow_id": "7648982443038703656",
+                "app_id": "7648929438155210767",
+                "parameters": {
+                    "chengshi_in": "上海",
+                    "guihua_fangxiang": "AI大模型",
+                    "input": "https://p9-bot-workflow-sign.byteimg.com/tos-cn-i-mdko3gqilj/35a502eb00fa411da13bbcc8ab472df2.pdf~tplv-mdko3gqilj-image.image?rk3s=81d4c505&x-expires=1812022967&x-signature=bjYJK1hLorUemG2xziNsezuJK9k%3D&x-wf-file_name=21%E5%B1%8A++%E5%BC%A0%E6%81%BA%E6%98%8E+%E4%B8%AA%E4%BA%BA%E7%AE%80%E5%8E%86.pdf",
+                    "mubiao_gangwei": "AI产品经理",
+                    "xinzi_in": "10k",
+                },
+            },
         )
 
 

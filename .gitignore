@@ -236,6 +236,7 @@ uv.lock
 # But keep skills markdown files and test markdown files
 !src/xagent/skills/**/*.md
 !tests/resources/test_files/*.md
+!docs/53aihub-integration/*.md
 
 .DS_Store
 uploads/
