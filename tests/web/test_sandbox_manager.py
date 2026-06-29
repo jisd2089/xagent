@@ -2,10 +2,11 @@
 
 import os
 import threading
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from xagent.sandbox.base import SandboxConfig, SandboxInfo, SandboxTemplate
 from xagent.web.sandbox_manager import (
     SandboxManager,
     _create_boxlite_service,
@@ -13,6 +14,15 @@ from xagent.web.sandbox_manager import (
     _create_sandbox_service,
     get_sandbox_manager,
 )
+
+
+def _sandbox_info(name: str, state: str = "running") -> SandboxInfo:
+    return SandboxInfo(
+        name=name,
+        state=state,
+        template=SandboxTemplate(type="image", image="img:v1"),
+        config=SandboxConfig(),
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -385,6 +395,40 @@ class TestSandboxConfigParsing:
         assert config.volumes[0][1] == "/data"
         assert config.volumes[0][2] == "ro"
 
+    def test_sibling_mode_rejects_tilde_sandbox_volume_source(self):
+        """Docker sibling mode must not expand backend-container home paths."""
+        mock_service = MagicMock()
+        manager = SandboxManager(mock_service)
+
+        with patch.dict(
+            "os.environ",
+            {
+                "XAGENT_SANDBOX_HOST_STORAGE_ROOT": "/host/.xagent",
+                "SANDBOX_VOLUMES": "~/data:/data:ro",
+            },
+            clear=True,
+        ):
+            _, config = manager._get_sandbox_image_and_config()
+
+        assert config.volumes is None
+
+    def test_sibling_mode_rejects_relative_sandbox_volume_source(self):
+        """Docker sibling mode requires host-side absolute volume sources."""
+        mock_service = MagicMock()
+        manager = SandboxManager(mock_service)
+
+        with patch.dict(
+            "os.environ",
+            {
+                "XAGENT_SANDBOX_HOST_STORAGE_ROOT": "/host/.xagent",
+                "SANDBOX_VOLUMES": "relative:/data:ro",
+            },
+            clear=True,
+        ):
+            _, config = manager._get_sandbox_image_and_config()
+
+        assert config.volumes is None
+
     def test_volume_parsing_empty(self):
         """Test empty volumes string results in None."""
         mock_service = MagicMock()
@@ -478,6 +522,250 @@ class TestSandboxConfigParsing:
 
         assert config.env == {"KEY": "val"}
         assert config.volumes == [("/host", "/container", "ro")]
+
+
+class TestSandboxLifecycleConfig:
+    """Test sandbox lifecycle identity and runtime config consistency."""
+
+    @pytest.mark.asyncio
+    async def test_same_lifecycle_rejects_different_workspace_config(self, tmp_path):
+        """Same sandbox name should not be deleted/recreated for another workspace."""
+        service = AsyncMock()
+        service.get_or_create = AsyncMock(return_value=MagicMock())
+        service.delete = AsyncMock()
+        manager = SandboxManager(service)
+
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch(
+                "xagent.web.sandbox_manager.build_code_mount_volumes",
+                return_value=[("/repo/src", "/app/src", "ro")],
+            ),
+        ):
+            await manager.get_or_create_sandbox(
+                "user",
+                "42",
+                workspace_config={"base_dir": str(tmp_path / "user_42")},
+            )
+            with pytest.raises(RuntimeError, match="different runtime configuration"):
+                await manager.get_or_create_sandbox(
+                    "user",
+                    "42",
+                    workspace_config={"base_dir": str(tmp_path / "build_preview")},
+                )
+
+        service.delete.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_distinct_lifecycles_allow_distinct_workspace_configs(self, tmp_path):
+        """Build preview and chat should not compete for the same sandbox name."""
+        service = AsyncMock()
+        service.get_or_create = AsyncMock(side_effect=[MagicMock(), MagicMock()])
+        manager = SandboxManager(service)
+
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch(
+                "xagent.web.sandbox_manager.build_code_mount_volumes",
+                return_value=[("/repo/src", "/app/src", "ro")],
+            ),
+        ):
+            await manager.get_or_create_sandbox(
+                "user",
+                "42",
+                workspace_config={"base_dir": str(tmp_path / "user_42")},
+            )
+            await manager.get_or_create_sandbox(
+                "build_preview",
+                "42",
+                workspace_config={"base_dir": str(tmp_path / "build_preview")},
+            )
+
+        assert service.get_or_create.await_count == 2
+        assert service.get_or_create.await_args_list[0].args[0] == "user::42"
+        assert service.get_or_create.await_args_list[1].args[0] == "build_preview::42"
+
+
+class TestSandboxLeaseProvider:
+    """Test leasing primary and worker sandboxes for tool execution."""
+
+    @pytest.mark.asyncio
+    async def test_unsafe_lease_returns_primary_sandbox(self, tmp_path):
+        """Tools that are not concurrency-safe should keep the existing behavior."""
+
+        async def get_or_create(name, *args, **kwargs):
+            sandbox = MagicMock()
+            sandbox.name = name
+            return sandbox
+
+        service = AsyncMock()
+        service.get_or_create = AsyncMock(side_effect=get_or_create)
+        manager = SandboxManager(service)
+
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch(
+                "xagent.web.sandbox_manager.build_code_mount_volumes",
+                return_value=[("/repo/src", "/app/src", "ro")],
+            ),
+        ):
+            provider = await manager.create_lease_provider(
+                "user",
+                "42",
+                workspace_config={"base_dir": str(tmp_path / "user_42")},
+            )
+            async with provider.lease(concurrency_safe=False) as sandbox:
+                assert sandbox.name == "user::42"
+
+        assert service.get_or_create.await_count == 1
+        assert service.get_or_create.await_args_list[0].args[0] == "user::42"
+
+    @pytest.mark.asyncio
+    async def test_safe_concurrent_leases_use_distinct_workers(self, tmp_path):
+        """Concurrent safe leases should execute on separate worker sandboxes."""
+
+        async def get_or_create(name, *args, **kwargs):
+            sandbox = MagicMock()
+            sandbox.name = name
+            return sandbox
+
+        service = AsyncMock()
+        service.get_or_create = AsyncMock(side_effect=get_or_create)
+        manager = SandboxManager(service)
+
+        with (
+            patch.dict(
+                "os.environ", {"XAGENT_SANDBOX_MAX_CONCURRENCY": "2"}, clear=True
+            ),
+            patch(
+                "xagent.web.sandbox_manager.build_code_mount_volumes",
+                return_value=[("/repo/src", "/app/src", "ro")],
+            ),
+        ):
+            provider = await manager.create_lease_provider(
+                "user",
+                "42",
+                workspace_config={"base_dir": str(tmp_path / "user_42")},
+            )
+            async with provider.lease(concurrency_safe=True) as first:
+                async with provider.lease(concurrency_safe=True) as second:
+                    assert first.name == "user::42::worker::0"
+                    assert second.name == "user::42::worker::1"
+
+        assert service.get_or_create.await_args_list[0].args[0] == "user::42"
+        assert service.get_or_create.await_args_list[1].args[0] == (
+            "user::42::worker::0"
+        )
+        assert service.get_or_create.await_args_list[2].args[0] == (
+            "user::42::worker::1"
+        )
+
+    @pytest.mark.asyncio
+    async def test_worker_sandboxes_reuse_primary_workspace_config(self, tmp_path):
+        """Worker sandboxes should mount the same workspace roots as the primary."""
+
+        async def get_or_create(name, *args, **kwargs):
+            sandbox = MagicMock()
+            sandbox.name = name
+            return sandbox
+
+        service = AsyncMock()
+        service.get_or_create = AsyncMock(side_effect=get_or_create)
+        manager = SandboxManager(service)
+        workspace_dir = tmp_path / "user_42"
+
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch(
+                "xagent.web.sandbox_manager.build_code_mount_volumes",
+                return_value=[("/repo/src", "/app/src", "ro")],
+            ),
+        ):
+            provider = await manager.create_lease_provider(
+                "user",
+                "42",
+                workspace_config={"base_dir": str(workspace_dir)},
+            )
+            async with provider.lease(concurrency_safe=True):
+                pass
+
+        primary_config = service.get_or_create.await_args_list[0].kwargs["config"]
+        worker_config = service.get_or_create.await_args_list[1].kwargs["config"]
+        assert primary_config.volumes == worker_config.volumes
+        assert any(
+            volume[0] == str(workspace_dir) and volume[2] == "rw"
+            for volume in worker_config.volumes
+        )
+
+    @pytest.mark.asyncio
+    async def test_delete_sandbox_removes_cached_worker_sandboxes(self, tmp_path):
+        """Deleting a lifecycle sandbox should delete its worker sandboxes too."""
+
+        async def get_or_create(name, *args, **kwargs):
+            sandbox = MagicMock()
+            sandbox.name = name
+            return sandbox
+
+        service = AsyncMock()
+        service.get_or_create = AsyncMock(side_effect=get_or_create)
+        service.delete = AsyncMock()
+        manager = SandboxManager(service)
+
+        with (
+            patch.dict(
+                "os.environ", {"XAGENT_SANDBOX_MAX_CONCURRENCY": "2"}, clear=True
+            ),
+            patch(
+                "xagent.web.sandbox_manager.build_code_mount_volumes",
+                return_value=[("/repo/src", "/app/src", "ro")],
+            ),
+        ):
+            provider = await manager.create_lease_provider(
+                "user",
+                "42",
+                workspace_config={"base_dir": str(tmp_path / "user_42")},
+            )
+            async with provider.lease(concurrency_safe=True):
+                pass
+            async with provider.lease(concurrency_safe=True):
+                pass
+
+            await manager.delete_sandbox("user", "42")
+
+        deleted_names = {call.args[0] for call in service.delete.await_args_list}
+        assert deleted_names == {
+            "user::42",
+            "user::42::worker::0",
+            "user::42::worker::1",
+        }
+        assert "user::42" not in manager._cache
+        assert "user::42::worker::0" not in manager._cache
+        assert "user::42::worker::1" not in manager._cache
+
+    @pytest.mark.asyncio
+    async def test_delete_sandbox_removes_persisted_worker_sandboxes(self):
+        """Delete should include worker sandboxes discovered from the service."""
+        service = AsyncMock()
+        service.delete = AsyncMock()
+        service.list_sandboxes = AsyncMock(
+            return_value=[
+                _sandbox_info("user::42"),
+                _sandbox_info("user::42::worker::0"),
+                _sandbox_info("user::42::worker::1"),
+                _sandbox_info("user::420::worker::0"),
+                _sandbox_info("tools::42::worker::0"),
+            ]
+        )
+        manager = SandboxManager(service)
+
+        await manager.delete_sandbox("user", "42")
+
+        deleted_names = {call.args[0] for call in service.delete.await_args_list}
+        assert deleted_names == {
+            "user::42",
+            "user::42::worker::0",
+            "user::42::worker::1",
+        }
 
 
 class TestSandboxManagerWarmup:

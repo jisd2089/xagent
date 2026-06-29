@@ -17,6 +17,7 @@ by the WebSocket UI path so both transports share one state machine.
 from typing import Tuple
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ...models.agent import Agent
@@ -32,8 +33,17 @@ from ...schemas.v1 import (
     StepsResponse,
     TaskInfoResponse,
 )
+from ...services.hot_path_cache import (
+    cache_get,
+    cache_set,
+    cache_version_token,
+    task_cache_ttl_seconds,
+    task_snapshot_key,
+    task_steps_key,
+)
 from ...services.task_orchestrator import (
     TaskTurnError,
+    TaskTurnNotFoundError,
     TaskTurnOrchestrator,
     TaskTurnPayload,
     TurnKind,
@@ -65,8 +75,8 @@ async def create_chat_task(
          (404 not 403, so the existence of unrelated agents isn't
          leaked via error code).
       2. Persists a new :class:`Task` row owned by the agent's user,
-         with ``source='sdk'`` and ``input`` set to the user message.
-         Also persists the first user message to
+         with ``source='sdk'``, ``is_visible=False``, and ``input`` set
+         to the user message. Also persists the first user message to
          ``task_chat_messages`` so the existing background execution
          path can consume it without special-casing this entry point.
       3. Schedules background execution via
@@ -86,8 +96,10 @@ async def create_chat_task(
 
     Returns:
         :class:`CreateTaskResponse` with the new ``task_id``,
-        ``agent_id``, ``status='pending'``, and ``created_at`` for the
-        caller to start polling from.
+        ``agent_id``, ``status='running'`` (the atomic claim inside
+        the handler flips the row from PENDING to RUNNING before the
+        response is sent), and ``created_at`` for the caller to
+        start polling from.
 
     Raises:
         V1ApiError 401: missing/invalid/revoked key (raised inside
@@ -119,8 +131,11 @@ async def create_chat_task(
 
     # Create the Task row with SDK-specific fields populated.
     # ``source='sdk'`` lets adoption metrics queries split SDK traffic
-    # from web/widget; ``input`` records this turn's user message so
-    # GET endpoint can return it without going through task_chat_messages.
+    # from web/widget; ``is_visible=False`` keeps SDK/REST runs out of
+    # Web UI discovery surfaces while preserving exact task-id access
+    # for SDK polling and audit views; ``input`` records this turn's
+    # user message so GET endpoint can return it without going through
+    # task_chat_messages.
     task = Task(
         user_id=agent.user_id,
         title=title,
@@ -129,6 +144,7 @@ async def create_chat_task(
         agent_id=agent.id,
         input=request.message.content,
         source="sdk",
+        is_visible=False,
     )
     db.add(task)
     db.commit()
@@ -140,21 +156,30 @@ async def create_chat_task(
     # A brand-new task shouldn't ever hit busy -- but we map it
     # anyway for defense.
     try:
-        await TaskTurnOrchestrator.begin_turn(
-            task=task,
+        started = await TaskTurnOrchestrator.begin_turn(
+            task_id=int(task.id),
+            task_owner_user_id=int(agent.user_id),
+            # SDK key resolves to the agent owner; actor == owner here.
+            actor_user_id=int(agent.user_id),
             payload=TaskTurnPayload(transcript_message=request.message.content),
-            user=task.user,
-            db=db,
             kind=TurnKind.CREATE,
             force_fresh=False,
         )
+    except TaskTurnNotFoundError:
+        raise V1ApiError(V1ErrorCode.TASK_NOT_FOUND, 404)
     except TaskTurnError:
         raise V1ApiError(V1ErrorCode.TASK_BUSY, 409)
 
+    # ``status`` comes from the orchestrator's committed-row snapshot
+    # (``started.status`` == RUNNING), NOT the caller's ``task`` object --
+    # ``begin_turn`` now commits on an isolated worker-thread session and
+    # never refreshes this request's ORM row, so ``task.status`` is still
+    # the stale PENDING. ``created_at`` is set at task creation and isn't
+    # touched by the turn, so the in-memory value is correct.
     return CreateTaskResponse(
         task_id=int(task.id),
         agent_id=int(agent.id),
-        status="pending",
+        status=started.status.value,
         created_at=task.created_at,
     )
 
@@ -282,37 +307,31 @@ async def append_message_to_task(
     # 409), persists the new user message, and schedules the bg turn
     # with a single-flight guard against concurrent kickoffs.
     try:
-        await TaskTurnOrchestrator.begin_turn(
-            task=task,
+        started = await TaskTurnOrchestrator.begin_turn(
+            task_id=int(task.id),
+            task_owner_user_id=int(agent.user_id),
+            # SDK key resolves to the agent owner; actor == owner here.
+            actor_user_id=int(agent.user_id),
             payload=TaskTurnPayload(transcript_message=request.message.content),
-            user=task.user,
-            db=db,
             kind=TurnKind.APPEND,
             force_fresh=False,
         )
+    except TaskTurnNotFoundError:
+        raise V1ApiError(V1ErrorCode.TASK_NOT_FOUND, 404)
     except TaskTurnError:
         raise V1ApiError(V1ErrorCode.TASK_BUSY, 409)
 
-    # Pick up updated_at written by the orchestrator's UPDATE.
-    db.refresh(task)
-
-    # accepted_at uses the DB row's ``updated_at`` (set by ``onupdate=
-    # func.now()`` on the atomic UPDATE) instead of a fresh
-    # ``datetime.now(...)``. That way SDK clients reading this field
-    # see a value that matches what they'd read from the DB directly
-    # via GET /v1/chat/tasks/{id}, with no clock-skew between the two.
-    #
-    # ``status='running'`` (not 'pending') because the atomic UPDATE
-    # above already flipped the row to RUNNING in the same transaction.
-    # Returning 'pending' here would lie to the SDK client: an
-    # immediately-following GET would see 'running' and the client
-    # would have to reconcile two contradictory values from
-    # back-to-back calls.
+    # ``status`` / ``accepted_at`` come from the orchestrator's committed-row
+    # snapshot (``started``), not a post-call ``db.refresh(task)``. The
+    # refresh was itself a blocking SELECT on the event loop; ``begin_turn``
+    # already SELECTed ``updated_at`` (set by ``onupdate=func.now()`` on the
+    # atomic UPDATE) inside its off-loop transaction, so SDK clients still see
+    # a value matching what GET /v1/chat/tasks/{id} would return.
     return AppendMessageResponse(
         task_id=int(task.id),
         agent_id=int(agent.id),
-        status="running",
-        accepted_at=task.updated_at,
+        status=started.status.value,
+        accepted_at=started.updated_at,
     )
 
 
@@ -352,8 +371,13 @@ async def get_chat_task(
     # don't mis-interpret an in-flight task's last write timestamp as
     # a completion time.
     completed_at = task.updated_at if task.status in _TERMINAL_STATUSES else None
+    cache_key = task_snapshot_key(task_id)
+    task_updated_at = cache_version_token(task.updated_at)
+    cached = cache_get(cache_key)
+    if isinstance(cached, dict) and cached.get("updated_at") == task_updated_at:
+        return TaskInfoResponse.model_validate(cached["response"])
 
-    return TaskInfoResponse(
+    response = TaskInfoResponse(
         task_id=int(task.id),
         agent_id=int(task.agent_id),
         status=task.status.value,
@@ -363,6 +387,15 @@ async def get_chat_task(
         created_at=task.created_at,
         completed_at=completed_at,
     )
+    cache_set(
+        cache_key,
+        {
+            "updated_at": task_updated_at,
+            "response": response.model_dump(mode="json"),
+        },
+        ttl_seconds=task_cache_ttl_seconds(),
+    )
+    return response
 
 
 @router.get("/chat/tasks/{task_id}/steps", response_model=StepsResponse)
@@ -404,13 +437,30 @@ async def get_chat_task_steps(
     agent, _key = authed
     task = _resolve_task_or_404(task_id, agent, db)
 
+    max_event_id = (
+        db.query(func.max(TraceEvent.id))
+        .filter(
+            TraceEvent.task_id == task_id,
+            TraceEvent.build_id.is_(None),
+        )
+        .scalar()
+        or 0
+    )
+    cache_key = task_steps_key(task_id)
+    cached = cache_get(cache_key)
+    if isinstance(cached, dict) and cached.get("max_event_id") == int(max_event_id):
+        return StepsResponse.model_validate(cached["response"])
+
     # Ordered ASC by ``id`` -- the trace_events PK is monotonically
     # increasing per write, so ordering by it gives us the same
     # temporal ordering as ``timestamp`` but without depending on
     # clock-skew within a single task's write fan-out.
     events = (
         db.query(TraceEvent)
-        .filter(TraceEvent.task_id == task_id)
+        .filter(
+            TraceEvent.task_id == task_id,
+            TraceEvent.build_id.is_(None),
+        )
         .order_by(TraceEvent.id.asc())
         .all()
     )
@@ -420,8 +470,17 @@ async def get_chat_task_steps(
     # FastAPI app or DB session.
     public_steps_data = map_trace_events_to_public_steps(events)
 
-    return StepsResponse(
+    response = StepsResponse(
         task_id=int(task.id),
         agent_id=int(task.agent_id),
         steps=[PublicStep(**step) for step in public_steps_data],
     )
+    cache_set(
+        cache_key,
+        {
+            "max_event_id": int(max_event_id),
+            "response": response.model_dump(mode="json"),
+        },
+        ttl_seconds=task_cache_ttl_seconds(),
+    )
+    return response

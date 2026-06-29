@@ -38,6 +38,7 @@ const zh = {
     },
   },
   nav: {
+    home: "首页",
     settings: "系统设置",
     dashboard: "仪表盘",
     vibe: "Vibe",
@@ -58,11 +59,14 @@ const zh = {
     deploy: "部署",
     agentDev: "Agent 构建与部署",
     task: "任务",
+    workforces: "Workforces",
     history: "全部任务",
     search: "搜索任务",
     templates: "模板",
     channels: "渠道",
     more: "更多",
+    menu: "导航菜单",
+    openMenu: "打开导航",
     sections: {
       agentDevelopment: "Agent 开发",
       resources: "资源",
@@ -73,6 +77,55 @@ const zh = {
       title: "欢迎使用 {appName}",
       subtitle: "无需编写代码即可构建、部署并扩展属于你的智能体。",
       searchPlaceholder: "你想做点什么？",
+    },
+    revamp: {
+      greeting: "你好",
+      greetingMorning: "早上好",
+      greetingAfternoon: "下午好",
+      greetingEvening: "晚上好",
+      goalTitle: "这次想达成什么目标？",
+      start: "开始",
+      running: "{count} 个任务进行中",
+      liveView: "查看",
+      askPlaceholder: "你可以提问、调研、写作、生成、分析……",
+      fileOnlyPrompt: "请分析我上传的文件，并总结关键信息。",
+      capabilities: {
+        slides: {
+          label: "Slides",
+          prompt: "创建一个 10 页幻灯片，主题是：",
+        },
+        sheets: {
+          label: "Sheets",
+          prompt: "分析这个表格：",
+        },
+        docs: {
+          label: "Docs",
+          prompt: "写一篇关于以下主题的文档：",
+        },
+        pdf: {
+          label: "PDF",
+          prompt: "总结这个 PDF：",
+        },
+        image: {
+          label: "Image",
+          prompt: "生成一张这样的图片：",
+        },
+        research: {
+          label: "Research",
+          prompt: "对以下主题进行深度研究：",
+        },
+      },
+      followupTitle: "希望它以后能反复自动执行？",
+      followupDescription: "把这次流程沉淀成可复用 Agent，下次一句话就能调用。",
+      buildAgent: "构建一个 Agent",
+    },
+    agents: {
+      title: "你的 Agents",
+      subtitle: "点击聊天 — 这些是你可以直接运行、继续打磨和复用的工作助手。",
+      manageAll: "管理全部",
+      empty: "还没有 Agent，先创建一个把工作流沉淀下来。",
+      newAgent: "新建 Agent",
+      buildTime: "几分钟内即可搭建完成",
     },
     getStarted: {
       title: "开始使用",
@@ -94,13 +147,17 @@ const zh = {
       }
     },
     templates: {
-      title: "使用模板构建智能体",
+      title: "模板",
       viewAll: "查看全部",
       setupTime: "{time} 配置",
+      subtitle: "跳过空白页面，快速克隆预构建的智能体。",
+      browseLibrary: "浏览模板库",
       useTemplate: "使用模板"
     },
     recent: {
       title: "最近活动",
+      subtitle: "继续处理最近的任务，或查看最新执行结果。",
+      viewTask: "查看任务",
       untitledTask: "未命名任务",
       defaultAgent: "智能体"
     }
@@ -123,47 +180,21 @@ const zh = {
     cards: {
       research: {
         title: "深入研究一个话题",
-        prompt: "我需要研究人工智能领域的最新趋势。"
       },
       linkedin: {
         title: "撰写 LinkedIn 动态",
-        prompt: "帮我写一篇 LinkedIn 动态，宣布新功能发布。"
       },
       poster: {
         title: "设计活动海报",
-        prompt: "为即将举行的科技会议设计一张海报。"
       },
       compare: {
         title: "深度对比产品",
-        prompt: "对比市场上排名前 3 的电动汽车。"
       },
       visual: {
         title: "为话题创建可视化图表",
-        prompt: "创建一张神经网络工作原理的可视化图表。"
       },
       presentation: {
         title: "将话题转化为演示文稿",
-        prompt: "创建一个关于可再生能源的 5 页幻灯片。"
-      },
-      createPPT: {
-        title: "根据报告生成一个 PPT",
-        description: "销售报告，幻灯片",
-        prompt: "根据报告生成一个 PPT"
-      },
-      dataAnalysis: {
-        title: "分析数据集",
-        description: "趋势，反馈",
-        prompt: "分析数据集"
-      },
-      designPoster: {
-        title: "设计一张营销海报",
-        description: "社交媒体素材",
-        prompt: "设计一张营销海报"
-      },
-      automatic: {
-        title: "自动化一个工作流程",
-        description: "自定义工作流",
-        prompt: "自动化一个工作流程"
       }
     },
     input: {
@@ -225,7 +256,8 @@ const zh = {
   branding: {
     subtitle: "AI Agents for Everyone",
     tagline: `Run instantly.
-Build when you need.`
+Build when you need.`,
+    hero_description: "在同一个工作空间中规划、运行并审查你的智能体，从即时任务到完整工作流。",
   },
   settings: {
     title: "系统设置",
@@ -233,6 +265,21 @@ Build when you need.`
     language: {
       title: "语言设置",
       description: "选择界面显示语言",
+    },
+    email: {
+      title: "邮箱设置",
+      description: "查看并更新当前账户绑定的邮箱地址",
+      username: "用户名",
+      current: "邮箱地址",
+      placeholder: "请输入邮箱地址",
+      submit: "更新邮箱",
+      submitting: "更新中...",
+      success: "邮箱更新成功",
+      failed: "邮箱更新失败",
+      errors: {
+        required: "请输入邮箱地址",
+        network: "网络错误，请稍后重试",
+      },
     },
     versionControl: {
       title: "智能规划",
@@ -275,6 +322,11 @@ Build when you need.`
         visual: { title: "视觉模型", description: "理解并处理图像" },
         compact: { title: "长上下文模型", description: "处理长上下文与压缩" },
         embedding: { title: "嵌入模型", description: "生成向量嵌入" },
+        image: { title: "图像生成模型", description: "用于图片生成任务" },
+        image_edit: { title: "图像编辑模型", description: "用于图片编辑与修改" },
+        asr: { title: "语音识别模型", description: "用于语音转文本任务" },
+        tts: { title: "文本转语音模型", description: "用于文本转语音任务" },
+        speech: { title: "语音模型", description: "同时支持语音识别与合成" },
       },
       actions: {
         clearDefault: "清除默认",
@@ -311,6 +363,8 @@ Build when you need.`
     form: {
       username: "用户名",
       username_placeholder: "请输入用户名",
+      email: "邮箱",
+      email_placeholder: "请输入邮箱地址",
       password: "密码",
       password_placeholder: "请输入密码（至少6位）",
       confirm_password: "确认密码",
@@ -324,6 +378,7 @@ Build when you need.`
       failed_retry: "注册失败，请稍后重试",
       password_mismatch: "密码不匹配",
       password_too_short: "密码长度至少6位",
+      invalid_email: "请输入有效的邮箱地址",
     },
     login_hint: {
       has_account: "已有账户？",
@@ -437,33 +492,96 @@ Build when you need.`
     },
     form: {
       username: "管理员用户名",
+      email: "管理员邮箱",
       password: "管理员密码",
       confirmPassword: "确认密码",
       submit: "创建管理员",
       submitting: "创建中...",
     },
     errors: {
-      required: "请填写用户名和密码",
+      required: "请填写用户名、邮箱和密码",
+      invalidEmail: "请输入有效的邮箱地址",
       passwordTooShort: "密码至少 6 位",
       passwordMismatch: "两次输入的密码不一致",
       failed: "初始化失败",
     },
+  },
+  forgotPassword: {
+    mobile_title: "找回密码",
+    mode_label: "密码重置",
+    title: "找回 {appName} 密码",
+    description: "输入注册邮箱，我们会向您发送重置密码链接",
+    form: {
+      email: "邮箱",
+      email_placeholder: "请输入注册邮箱",
+      submit: "发送重置链接",
+      submitting: "发送中...",
+    },
+    alerts: {
+      success: "如果该邮箱存在，我们已经发送了重置链接",
+      failed: "发送重置链接失败",
+      failed_retry: "发送失败，请稍后重试",
+      invalid_email: "请输入有效的邮箱地址",
+    },
+    back_to_login: "想起密码了？",
+  },
+  resetPassword: {
+    mobile_title: "重置密码",
+    mode_label: "新密码",
+    title: "重置 {appName} 密码",
+    description: "请输入您的新密码并确认",
+    form: {
+      password: "新密码",
+      password_placeholder: "请输入新密码（至少6位）",
+      confirm_password: "确认新密码",
+      confirm_password_placeholder: "请再次输入新密码",
+      submit: "更新密码",
+      submitting: "更新中...",
+    },
+    alerts: {
+      success: "密码重置成功，即将跳转登录页",
+      failed: "密码重置失败",
+      failed_retry: "密码重置失败，请稍后重试",
+      password_mismatch: "两次输入的密码不一致",
+      password_too_short: "密码长度至少6位",
+      invalid_token: "重置链接无效或缺少 token",
+    },
+    back_to_login: "返回登录？",
   },
   login: {
     mobile_title: "欢迎回来",
     title: "登录 {appName}",
     description: "请输入您的账户信息以访问智能体平台",
     form: {
-      username: "用户名",
-      username_placeholder: "请输入用户名",
+      username: "用户名或邮箱",
+      username_placeholder: "请输入用户名或邮箱",
       password: "密码",
       password_placeholder: "请输入密码",
       submit: "登录",
       submitting: "登录中...",
     },
     alerts: {
-      auth_failed: "用户名或密码错误",
+      auth_failed: "用户名/邮箱或密码错误",
       network_failed: "登录失败，请稍后重试",
+      google_failed: "Google 登录失败，请重试",
+    },
+    google: {
+      continue: "使用 Google 继续",
+      unavailable: "Google 登录尚未配置",
+      completing: "正在完成登录...",
+    },
+    oidc_errors: {
+      provider_error: "Google 登录已取消或失败",
+      invalid_callback: "Google 登录回调无效",
+      invalid_state: "Google 登录已过期，请重试",
+      not_configured: "Google 登录尚未配置",
+      invalid_id_token: "Google 登录失败，请重试",
+      verification_failed: "无法验证 Google 登录",
+      email_unverified: "Google 邮箱必须已验证",
+      setup_required: "请先创建第一个管理员账户，再使用 Google 登录",
+      registration_disabled: "当前已关闭新 Google 用户注册",
+      callback_failed: "Google 登录失败，请重试",
+      exchange_failed: "Google 登录失败，请重试",
     },
     options: {
       remember_me: "记住登录状态",
@@ -961,6 +1079,7 @@ Build when you need.`
     },
     categories: {
       basic: "基础工具",
+      web_search: "网页搜索",
       browser: "浏览器工具",
       vision: "视觉工具",
       image: "图像工具",
@@ -1023,14 +1142,14 @@ Build when you need.`
     sidebar: {
       folders: "文件夹",
       allFiles: "所有文件",
-      agents: "智能体",
-      noAgents: "未找到智能体",
+      tasks: "任务",
+      noTasks: "未找到包含文件的任务",
       system: "系统",
       userUploads: "用户上传",
     },
     breadcrumb: {
       files: "文件",
-      unknownAgent: "未知智能体",
+      unknownTask: "未知任务",
       unknownCategory: "未知分类",
     },
     selection: {
@@ -1059,9 +1178,16 @@ Build when you need.`
       confirmSingle: "确定要删除 {name} 吗？",
       confirmMultiple: "确定要删除 {count} 个文件吗？",
     },
+    pagination: {
+      showing: "显示第 {start}-{end} 条，共 {total} 条",
+      prev: "上一页",
+      page: "第 {page} 页，共 {pages} 页",
+      next: "下一页",
+    },
     previewDialog: {
       buttons: {
         download: "下载",
+        open: "打开",
         openInNewWindow: "新窗口打开",
       },
       loading: "加载文件内容...",
@@ -1074,6 +1200,7 @@ Build when you need.`
         loadFailed: "文件加载失败",
         docxRenderFailed: "DOCX 预览渲染失败",
         excelRenderFailed: "Excel 预览渲染失败",
+        pptxRenderFailed: "PowerPoint 预览渲染失败",
         cors: "CORS 错误：无法访问文件。这可能是浏览器缓存问题，请尝试刷新页面。",
         networkErrorWithMsg: "网络错误：{msg}",
       },
@@ -1200,6 +1327,7 @@ Build when you need.`
     title: "模板中心",
     subtitle: "使用预构建的智能体快速启动工作流。",
     searchPlaceholder: "搜索模板...",
+    popular: "热门",
     useTemplate: "使用模板",
     countOne: "{count} 个模板",
     countOther: "{count} 个模板",
@@ -1293,6 +1421,7 @@ Build when you need.`
     tabs: {
       llm: "LLM 模型",
       embedding: "Embedding 模型",
+      rerank: "重排序模型",
       image: "图像生成模型",
       speech: "语音模型",
     },
@@ -1321,6 +1450,7 @@ Build when you need.`
       image_edit: "图像编辑模型",
       asr: "语音识别模型",
       tts: "文本转语音模型",
+      rerank: "重排序模型",
       shared: "已分享",
       shared_from_others: "公共模型",
     },
@@ -1436,6 +1566,7 @@ Build when you need.`
       edit: "编辑",
       asr: "语音识别 (ASR)",
       tts: "文本转语音 (TTS)",
+      rerank: "重排序",
     },
     providers: {
       openai: {
@@ -1497,8 +1628,13 @@ Build when you need.`
       multiFileNameRequired: "上传多个文件前，请先填写统一的知识库名称",
       uploadFailedFile: "上传文件失败: {name}",
       uploadFailed: "上传失败",
+      embeddingModelUnavailable: "知识库导入失败：未配置可用的嵌入模型",
+      embeddingModelUnavailableHint: "请先在模型设置中配置默认嵌入模型，或在索引设置中选择一个可用的嵌入模型后重试。",
+      rollbackFailed: "知识库导入失败，清理未完全完成",
+      rollbackFailedHint: "系统已尝试回滚本次导入，请在“处理结果”中查看详细错误并确认文件状态。",
       startUrlRequired: "请输入起始 URL",
       webIngestFailed: "网站导入失败",
+      cloudIngestFailed: "云端导入失败",
       deleteFailed: "删除知识库失败: {name}",
       deleteFailedGeneric: "删除知识库失败",
       batchDeleteFailed: "批量删除失败",
@@ -1717,6 +1853,7 @@ Build when you need.`
           crawling: "正在爬取网站，这可能需要几分钟...",
           success: "爬取成功",
           done: "爬取完成",
+          failed: "爬取失败",
         },
         result: {
           pages: "爬取页面",
@@ -1754,6 +1891,9 @@ Build when you need.`
       startImport: "开始导入",
       saveConfig: "保存配置",
       savingConfig: "正在保存配置...",
+      rerankModelId: "重排序模型",
+      rerankModelHint: "配置后，知识库搜索会自动多一个 rerank 阶段；不配置则不执行 rerank。",
+      saveRerankModel: "保存重排序模型",
     },
     detail: {
       viewingDetails: "正在查看知识库 {name} 的详情",
@@ -1918,6 +2058,8 @@ Build when you need.`
         publish: "发布",
         delete: "删除",
         edit: "编辑",
+        apiKey: "API Key",
+        triggers: "Triggers",
         deleteConfirm: "确定要删除这个 Agent 吗？",
       },
       createModal: {
@@ -2073,6 +2215,7 @@ Build when you need.`
         selectAll: "全选",
         categories: {
           basic: "基础工具",
+          webSearch: "网页搜索",
           file: "文件操作",
           vision: "视觉",
           image: "图像生成",
@@ -2089,6 +2232,7 @@ Build when you need.`
         },
         categoryDescriptions: {
           basic: "系统基础能力，包括数学计算、日期时间获取等核心功能。",
+          webSearch: "网页搜索与网页内容抓取，用于查找资料并按需读取网页正文。",
           file: "文件系统操作，支持文件的读写、搜索、列表和管理。",
           vision: "计算机视觉能力，支持图像识别、分析和内容提取。",
           image: "图像生成与处理，支持文生图、图像编辑等创意功能。",
@@ -2150,6 +2294,7 @@ Build when you need.`
     loadAgentDetailsFailed: "无法加载 Agent 详情",
   },
   agent: {
+    logo: "Agent 标识",
     header: {
       backTitle: "返回Vibe",
       badge: {
@@ -2351,7 +2496,7 @@ Build when you need.`
               },
               guide: {
                 title: "双Token机制功能说明:",
-                accessToken: "Access Token: 30分钟过期，用于API调用",
+                accessToken: "Access Token: 120分钟过期，用于API调用",
                 refreshToken: "Refresh Token: 7天过期，用于刷新access token",
                 autoRefresh: "自动刷新: Access token过期前1分钟自动刷新",
                 offlineRecovery: "离线恢复: 离开几小时回来仍可自动恢复登录状态",
@@ -2795,6 +2940,9 @@ Build when you need.`
   traceEventRenderer: {
     skillSelected: "已选择技能",
     taskExecution: "正在思考",
+    thoughtProcess: "思考过程",
+    showProcess: "展开过程",
+    hideProcess: "收起过程",
     unknownModel: "未知模型",
     callLLM: "调用 LLM: {model}",
     llmResponse: "LLM 响应",
@@ -2826,13 +2974,20 @@ Build when you need.`
     command: "命令",
     searchQuery: "搜索查询",
     content: "内容",
+    toolCallNote: "工具说明",
+    progressMessage: "进度",
     copy: "复制",
     previewFile: "预览文件",
     filePrefix: "文件:",
     queryPrefix: "查询:",
     pathPrefix: "路径:",
     bashPrefix: "Bash命令:",
-    searchPrefix: "搜索:"
+    searchPrefix: "搜索:",
+    workforceDelegation: "Workforce 委派",
+    delegateToWorker: "委派给 {worker}",
+    workerReturned: "Worker 已返回结果",
+    workerFailed: "Worker 执行失败",
+    unknownWorker: "未知 Worker"
   },
   deploy_agent: {
     title: "部署 Agent",
@@ -2880,10 +3035,447 @@ Build when you need.`
       desc: "复制此 script 标签并将其粘贴到网站的 <body> 标签中。",
       copy_btn: "复制代码"
     },
+    share_link: {
+      title: "分享链接",
+      desc: "生成一个任何人都可以打开并与此 Agent 聊天的公开页面。",
+      publish_required: "请先发布此 Agent，再生成分享链接。",
+      public_url: "公开链接",
+      anyone_access: "任何拿到此链接的人都可以与该 Agent 发起公开对话。",
+      generate_btn: "生成链接",
+      rotate_btn: "重置链接",
+      disable_btn: "关闭链接"
+    },
     messages: {
       update_success: "Widget 配置已更新",
       update_failed: "Widget 配置更新失败",
-      copied: "已复制到剪贴板"
+      copied: "已复制到剪贴板",
+      copy_failed: "复制到剪贴板失败",
+      link_copied: "链接已复制到剪贴板",
+      share_enabled: "分享链接已生成",
+      share_rotated: "分享链接已重置",
+      share_disabled: "分享链接已关闭",
+      share_failed: "分享链接操作失败"
+    },
+    api_panel: {
+      title: "通过 REST API 调用此 Agent",
+      desc: "向 Agent 提交一个任务，然后轮询 GET /v1/chat/tasks/{id} 获取结果。",
+      copy_btn: "复制",
+      key_hint: "将 YOUR_API_KEY 替换为此 Agent 的 API Key。",
+      manage_key: "管理 API Key"
+    }
+  },
+  api_key: {
+    title: "API Key",
+    subtitle: "SDK / REST API 凭证",
+    empty: "尚未创建 API Key。生成一个即可通过 SDK 或 REST API 调用此 Agent。",
+    active_key: "当前 Key",
+    created_at: "创建于",
+    reveal: {
+      warning: "请立即复制此 Key —— 它只显示一次。",
+      copy: "复制"
+    },
+    actions: {
+      generate: "生成 API Key",
+      regenerate: "重新生成",
+      revoke: "撤销",
+      cancel: "取消"
+    },
+    confirm: {
+      regenerate: "重新生成会立即使当前 Key 失效，正在使用它的应用将停止工作，直到更新为新 Key。",
+      revoke: "撤销会使当前 Key 失效，正在使用它的应用将停止工作。"
+    },
+    messages: {
+      load_failed: "加载 API Key 失败",
+      generated: "API Key 已生成",
+      generate_failed: "生成 API Key 失败",
+      revoked: "API Key 已撤销",
+      revoke_failed: "撤销 API Key 失败",
+      copied: "已复制到剪贴板",
+      copy_failed: "复制到剪贴板失败"
+    }
+  },
+  triggers: {
+    title: "Triggers",
+    subtitle: "选择此 Agent 的触发方式",
+    defaults: {
+      webhookName: "API / Webhook",
+      scheduledName: "Schedule"
+    },
+    overview: {
+      info: "Triggers 定义此 Agent 什么时候运行。启用一个或多个触发方式，让外部事件或定时计划自动启动 Agent。"
+    },
+    cards: {
+      webhook: {
+        title: "API / Webhook",
+        description: "通过 REST API 调用或 incoming webhook 触发"
+      },
+      scheduled: {
+        title: "Schedule",
+        description: "按固定时间间隔自动运行 Agent"
+      },
+      activeCount: "{count} Active"
+    },
+    builder: {
+      title: "Triggers",
+      description: "选择此 Agent 的自动触发入口。",
+      saveFirst: "保存 Agent 后即可配置 Triggers。",
+      tooltip: "Triggers 会在外部事件或定时计划发生时自动启动此 Agent。",
+      open: "Triggers",
+      configure: "配置 Trigger"
+    },
+    type: {
+      webhook: "Webhook",
+      scheduled: "定时"
+    },
+    status: {
+      enabled: "已启用",
+      disabled: "已停用"
+    },
+    runStatus: {
+      pending: "等待中",
+      running: "运行中",
+      completed: "已完成",
+      failed: "失败"
+    },
+    list: {
+      title: "Triggers",
+      empty: "还没有 Trigger"
+    },
+    form: {
+      createTitle: "新建 Trigger",
+      createSubtitle: "为此 Agent 创建 webhook 或定时触发入口。",
+      editTitle: "Trigger 设置",
+      editSubtitle: "更新触发定义和执行提示词。",
+      name: "名称",
+      namePlaceholder: "日报、CRM webhook...",
+      type: "类型",
+      intervalSeconds: "每多少秒重复",
+      nextRunAt: "首次运行时间",
+      secret: "Webhook Secret",
+      secretPlaceholder: "留空则自动生成",
+      secretEditPlaceholder: "留空则保留当前 secret",
+      promptTemplate: "提示词模板",
+      promptPlaceholder: "可使用 {{payload}}、{{trigger_type}}、{{source_event_id}} 和 {{test}}。"
+    },
+    actions: {
+      new: "新建",
+      create: "创建 Trigger",
+      enable: "启用 Trigger",
+      save: "保存修改",
+      delete: "删除",
+      confirmDelete: "确认删除",
+      rotateSecret: "轮换 secret",
+      test: "测试触发",
+      addAnother: "新增"
+    },
+    secret: {
+      title: "请立即复制此 secret，它只显示一次。"
+    },
+    webhook: {
+      title: "Webhook 地址",
+      secretHeader: "调用时通过 x-xagent-trigger-secret header 传入 secret。"
+    },
+    test: {
+      title: "测试运行",
+      subtitle: "使用示例 payload 启动一次 trigger run。",
+      sourceEventId: "Source event ID",
+      sourceEventPlaceholder: "可选事件 ID"
+    },
+    runs: {
+      title: "最近运行",
+      nextRun: "下次运行",
+      noNextRun: "暂无下次运行计划",
+      status: "状态",
+      source: "来源",
+      task: "任务",
+      created: "创建时间",
+      empty: "还没有运行记录"
+    },
+    validation: {
+      name: "Trigger 名称不能为空",
+      nameLength: "Trigger 名称最多 200 个字符",
+      interval: "重复间隔必须是正整数",
+      nextRunAt: "首次运行时间无效",
+      scheduleRequired: "定时 Trigger 需要重复间隔或首次运行时间",
+      testPayload: "测试 payload 必须是 JSON object"
+    },
+    messages: {
+      loadFailed: "加载 Triggers 失败",
+      runsLoadFailed: "加载 Trigger 运行记录失败",
+      created: "Trigger 已创建",
+      updated: "Trigger 已更新",
+      enabled: "Trigger 已启用",
+      disabled: "Trigger 已停用",
+      deleted: "Trigger 已删除",
+      saveFailed: "保存 Trigger 失败",
+      deleteFailed: "删除 Trigger 失败",
+      secretRotated: "Webhook secret 已轮换",
+      secretRotateFailed: "轮换 webhook secret 失败",
+      testStarted: "测试触发已启动",
+      testDuplicate: "复用了重复的 trigger run",
+      testFailed: "测试 Trigger 失败",
+      copyFailed: "复制到剪贴板失败"
+    }
+  },
+  workforces: {
+    common: {
+      noDescription: "暂无描述",
+      notAvailable: "不可用",
+      notSelected: "未选择"
+    },
+    status: {
+      draft: "草稿",
+      active: "启用",
+      archived: "已归档",
+      published: "已发布",
+      enabled: "已启用",
+      disabled: "已禁用"
+    },
+    sourceTypes: {
+      existing: "已有 Agent"
+    },
+    actions: {
+      new: "新建 Workforce",
+      create: "创建 Workforce",
+      run: "运行",
+      runWorkforce: "运行 Workforce",
+      details: "详情",
+      edit: "编辑",
+      canvas: "画布",
+      saveWorkforce: "保存 Workforce",
+      addWorker: "添加 Worker",
+      openAgent: "打开 Agent",
+      openAgentEditor: "打开 Agent 编辑器",
+      editAgent: "编辑 Agent",
+      remove: "移除",
+      saveWorker: "保存 Worker",
+      up: "上移",
+      down: "下移",
+      proposeChanges: "生成修改建议",
+      applyChanges: "应用修改",
+      alreadyApplied: "已应用",
+      readOnly: "只读",
+      publish: "发布",
+      unpublish: "取消发布",
+      archive: "归档"
+    },
+    fields: {
+      name: "名称",
+      description: "描述",
+      manager: "Manager",
+      managerInstructions: "Manager 指令",
+      workers: "Workers",
+      publishedAgent: "已发布 Agent",
+      alias: "别名",
+      assignmentInstructions: "任务指令",
+      enabled: "启用",
+      order: "顺序",
+      updated: "更新时间"
+    },
+    list: {
+      badge: "Workforce",
+      title: "Workforces",
+      description: "创建由 manager 统筹的多 Agent 工作组，明确 worker 职责，并从统一入口运行。",
+      searchPlaceholder: "搜索 Workforces...",
+      emptyTitle: "还没有 Workforce",
+      noResultsTitle: "没有匹配的 Workforce",
+      noResults: "没有 Workforce 与当前搜索条件匹配。",
+      manager: "Manager: {name}",
+      workers: "Workers: {count}",
+      lastRunTime: "上次运行时间：",
+      noRuns: "还没有运行记录"
+    },
+    emptyState: {
+      title: "Workforce 是如何工作的",
+      description: "编排 Agent 团队，处理复杂的多步骤任务。Manager Agent 自动规划并将任务委派给子 Agent。",
+      features: {
+        managerAgent: {
+          title: "Manager Agent",
+          description: "理解目标并将工作委派给合适子 Agent 的主导 Agent。"
+        },
+        subAgents: {
+          title: "Sub-Agents",
+          description: "专注于各自任务的专用 Agent——调研、写作、数据处理等。"
+        },
+        parallelExecution: {
+          title: "并行执行",
+          description: "同时运行多个 Agent，更快完成复杂工作流。"
+        },
+        approvalGates: {
+          title: "审批节点",
+          description: "在任何 Agent 执行关键操作前要求人工审批。"
+        }
+      },
+      action: "+ 创建 Workforce"
+    },
+    pagination: {
+      showing: "显示第 {start}-{end} 条，共 {total} 条",
+      prev: "上一页",
+      page: "第 {page} 页，共 {pages} 页",
+      next: "下一页"
+    },
+    create: {
+      backToWorkforces: "返回 Workforces",
+      backToCreate: "返回创建",
+      title: "创建 Workforce",
+      description: "选择最适合你的创建方式。",
+      modeSelect: {
+        aiTitle: "AI 辅助创建",
+        aiSubtitle: "推荐",
+        manualTitle: "手动设置",
+        manualSubtitle: "完全掌控",
+      },
+      prompt: {
+        badge: "AI 创建",
+        title: "创建 Workforce",
+        description: "描述你想达成的目标。Builder 会创建 manager，在合适时从已发布 agents 中选择 workers，并打开一个可检查的草稿。",
+        cardTitle: "这个 Workforce 应该做什么？",
+        cardDescription: "生成的 manager 会专门用于这个 Workforce。Workers 只会从已有的已发布 agents 中选择。",
+        placeholder: "例如：创建一个用于每周竞品监控的 Workforce。它需要调研竞品动态，总结价格变化，并起草一份简洁的管理层简报。",
+        manualSetup: "手动设置",
+        generate: "生成 Workforce"
+      },
+      manual: {
+        title: "手动设置 Workforce",
+        description: "选择已有 manager，添加 workers，然后在保存前检查编排配置。",
+        backToPrompt: "返回 AI 创建"
+      },
+      steps: {
+        basics: "基础信息",
+        workers: "Workers",
+        review: "检查"
+      },
+      placeholders: {
+        name: "营销发布 Workforce",
+        description: "协调调研、内容和发布任务。",
+        managerInstructions: "协调 workers，处理冲突结果，并返回统一答案。"
+      },
+      manager: {
+        selectLabel: "选择 manager agent",
+        placeholder: "选择 agent"
+      }
+    },
+    detail: {
+      description: "运行前检查并编辑当前编排。",
+      editTitle: "编辑 Workforce"
+    },
+    workers: {
+      addTitle: "添加 Worker",
+      manageTitle: "管理 Workers",
+      chooseAgent: "选择 worker agent",
+      aliasPlaceholder: "可选显示名称",
+      instructionsPlaceholder: "描述这个 worker 在 workforce 中负责什么。",
+      noneSelected: "还没有选择 worker。",
+      noneConfigured: "还没有配置 worker。",
+      noneYet: "还没有 worker。",
+      fallbackName: "Worker {index}",
+      aWorker: "某个 worker",
+      defaultDescription: "已发布的 agent worker",
+      publishedAgent: "已发布 agent",
+      disabledHelp: "禁用的 worker 会保留在 Workforce 中，但运行时会跳过。"
+    },
+    review: {
+      potentialRisks: "潜在风险",
+      untitled: "未命名 Workforce",
+      noManagerInstructions: "没有 manager 指令",
+      warnings: {
+        managerNotPublished: "Manager 还没有发布。",
+        workerNotPublished: "{name} 还没有发布。",
+        missingInstructions: "{name} 缺少任务指令。",
+        managerCannotBeWorker: "{name} 已经是 worker。请选择其他 manager，或移除这个 worker。"
+      }
+    },
+    summary: {
+      enabledCount: "{count} 个已启用"
+    },
+    run: {
+      testTitle: "测试 Workforce",
+      placeholder: "描述你希望 manager 协调完成的任务。",
+      inactiveDisabled: "请先发布这个 Workforce 再运行。",
+      archivedDisabled: "已归档的 Workforce 不能运行。"
+    },
+    builder: {
+      chatTitle: "Builder 对话",
+      chatDescription: "描述你想要的 workforce 修改，builder 会生成可检查的 patch。",
+      archivedReadOnly: "已归档的 Workforce 是只读的，不能生成或应用 Builder 修改。",
+      emptyPrompt: "可以这样开始：添加 Research Agent worker 来负责竞品调研。",
+      roleBuilder: "Builder",
+      roleYou: "你",
+      preparingPatch: "正在准备修改建议...",
+      messagePlaceholder: "把这个 workforce 改名为 \"Launch Crew\"，并让 Writer 专注发布邮件文案。",
+      sendHint: "按 Ctrl/Cmd + Enter 发送。",
+      patchTitle: "修改建议",
+      patchDescription: "应用前先检查生成的 workforce 修改。",
+      noProposal: "还没有建议。在 Builder 对话中发送请求来生成 patch。",
+      summary: "摘要",
+      clarificationNeeded: "需要澄清",
+      warnings: "警告",
+      readyToApply: "可以应用",
+      noDestructiveWarning: "这个 patch 没有检测到破坏性操作警告。",
+      operationsTitle: "操作",
+      changeCount: "{count} 项修改",
+      noOperations: "这个建议还没有包含可执行操作。",
+      operations: {
+        update_workforce: "更新 Workforce",
+        add_existing_worker: "添加已有 Worker",
+        update_worker: "更新 Worker",
+        remove_worker: "移除 Worker"
+      }
+    },
+    canvas: {
+      backToDetails: "返回详情",
+      connections: "连接",
+      noConnections: "暂未配置连接。",
+      nodeTypes: {
+        human: "Human",
+        manager: "Manager",
+        worker: "Worker"
+      }
+    },
+    loading: {
+      list: "正在加载 Workforces...",
+      agents: "正在加载 agents...",
+      creating: "正在创建...",
+      detail: "正在加载 Workforce...",
+      saving: "正在保存...",
+      starting: "正在启动...",
+      builderHistory: "正在加载 builder 历史...",
+      proposing: "正在生成建议...",
+      applyingChanges: "正在应用修改...",
+      runView: "正在加载运行页面...",
+      canvas: "正在加载画布...",
+      builder: "正在加载 builder..."
+    },
+    messages: {
+      updated: "Workforce 已更新",
+      workerAdded: "Worker 已添加",
+      workerUpdated: "Worker 已更新",
+      workerRemoved: "Worker 已移除",
+      proposalCreated: "Builder 修改建议已创建",
+      changesApplied: "Workforce 修改已应用",
+      published: "Workforce 已发布",
+      unpublished: "Workforce 已取消发布",
+      archived: "Workforce 已归档"
+    },
+    errors: {
+      loadList: "加载 Workforces 失败",
+      loadAgents: "加载 agents 失败",
+      create: "创建 Workforce 失败",
+      load: "加载 Workforce 失败",
+      update: "更新 Workforce 失败",
+      addWorker: "添加 worker 失败",
+      updateWorker: "更新 worker 失败",
+      removeWorker: "移除 worker 失败",
+      run: "运行 Workforce 失败",
+      notFound: "没有找到 Workforce。",
+      loadCanvas: "加载 Workforce 画布失败",
+      canvasUnavailable: "画布不可用。",
+      loadBuilder: "加载 builder 失败",
+      proposeChanges: "生成修改建议失败",
+      applyChanges: "应用修改失败",
+      publish: "发布 Workforce 失败",
+      unpublish: "取消发布 Workforce 失败",
+      archive: "归档 Workforce 失败"
     }
   },
   adminMcp: {
@@ -2939,7 +3531,15 @@ Build when you need.`
       columns: {
         appId: "应用 ID",
         provider: "供应商",
-        transport: "传输协议"
+        transport: "传输协议",
+        connectorVisibility: "连接器展示"
+      },
+      visibility: {
+        visible: "显示",
+        hidden: "隐藏",
+        showSuccess: "应用已显示在连接器弹窗中",
+        hideSuccess: "应用已从连接器弹窗中隐藏",
+        updateFailed: "更新连接器展示状态失败"
       },
       form: {
         appId: "应用 ID (例如 gmail)",
@@ -2948,6 +3548,8 @@ Build when you need.`
         iconUrl: "图标 URL",
         category: "分类",
         transport: "传输协议",
+        visibleInConnector: "在连接器弹窗中显示",
+        visibleInConnectorDescription: "关闭后，该公共应用会从连接器弹窗中完全隐藏，任何用户都无法再看到它。",
         oauthScopes: "OAuth 权限范围 (逗号分隔)",
         launchConfig: "启动配置 (JSON)",
         invalidJson: "launch_config 中存在无效的 JSON"

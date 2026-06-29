@@ -5,16 +5,24 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from xagent.core.agent.trace import get_display_user_message
+from xagent.core.file_storage.factory import get_file_storage
+from xagent.web.api import websocket as websocket_api
 from xagent.web.api.chat import _build_task_agent_config
 from xagent.web.api.websocket import (
     _append_uploaded_files_context_to_message,
     _build_uploaded_files_context,
+    _display_file_refs_from_file_info,
     _display_message_for_user,
+    _normalize_attachments_for_persistence,
     _normalize_file_outputs,
+    _normalize_task_file_outputs,
+    _register_uploaded_files_for_agent,
     _selected_file_refs_from_task,
+    execute_task_background,
     handle_file_upload_for_task,
 )
 from xagent.web.models import Base
+from xagent.web.models import database as database_models
 from xagent.web.models.task import Task, TaskStatus
 from xagent.web.models.uploaded_file import UploadedFile
 from xagent.web.models.user import User
@@ -50,13 +58,14 @@ def _create_task(
     task_id: int,
     user_id: int,
     selected_file_ids: list[str] | None = None,
+    status: TaskStatus = TaskStatus.PENDING,
 ) -> Task:
     task = Task(
         id=task_id,
         user_id=user_id,
         title=f"task-{task_id}",
         description="task",
-        status=TaskStatus.PENDING,
+        status=status,
         agent_config=(
             {"selected_file_ids": selected_file_ids}
             if selected_file_ids is not None
@@ -91,6 +100,369 @@ def _create_uploaded_file(
     db.add(file_record)
     db.flush()
     return file_record
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "terminal_status",
+    [TaskStatus.COMPLETED, TaskStatus.FAILED],
+)
+async def test_execute_task_background_reuses_task_id_for_terminal_tasks(
+    db_session,
+    monkeypatch,
+    terminal_status,
+):
+    user = _create_user(db_session, 1, "owner")
+    _create_task(
+        db_session,
+        task_id=10,
+        user_id=1,
+        status=terminal_status,
+    )
+    captured: dict[str, object] = {}
+
+    class BackgroundTaskManager:
+        async def wait_for_previous(self, task_id):
+            captured["waited_for"] = task_id
+
+        def cleanup_task(self, task_id):
+            captured["cleaned_up"] = task_id
+
+    class BroadcastManager:
+        async def broadcast_to_task(self, event, task_id):
+            captured["broadcast_task_id"] = task_id
+
+    class AgentService:
+        def set_conversation_history(self, history):
+            captured["conversation_history"] = history
+
+        def set_execution_context_messages(self, messages):
+            captured["execution_context_messages"] = messages
+
+        def set_recovered_skill_context(self, skill_context):
+            captured["skill_context"] = skill_context
+
+    class AgentManager:
+        async def get_agent_for_task(
+            self, task_id, db, user=None, task_setup_snapshot=None, **kwargs
+        ):
+            captured["agent_db"] = db
+            return AgentService()
+
+        async def execute_task(
+            self,
+            *,
+            agent_service,
+            task,
+            context,
+            task_id,
+            tracking_task_id,
+            db_session,
+        ):
+            captured["agent_task"] = task
+            captured["agent_task_id"] = task_id
+            captured["tracking_task_id"] = tracking_task_id
+            return {"success": True, "output": "ok", "file_outputs": []}
+
+    def fake_get_db():
+        yield db_session
+
+    def fake_release_current_runner_task_lease_with_workforce_sync(
+        db, task_id, *, status
+    ):
+        return True
+
+    monkeypatch.setattr(
+        websocket_api,
+        "background_task_manager",
+        BackgroundTaskManager(),
+    )
+    monkeypatch.setattr(websocket_api, "manager", BroadcastManager())
+    monkeypatch.setattr(
+        websocket_api,
+        "release_current_runner_task_lease_with_workforce_sync",
+        fake_release_current_runner_task_lease_with_workforce_sync,
+    )
+    monkeypatch.setattr(database_models, "get_db", fake_get_db)
+    monkeypatch.setattr(
+        "xagent.web.services.chat_history_service.persist_assistant_message",
+        lambda *args, **kwargs: None,
+    )
+
+    await execute_task_background(
+        task_id=10,
+        user_message="重试",
+        context={},
+        agent_manager=AgentManager(),
+        task_owner_user_id=int(user.id),
+        llm_user_message="重试",
+    )
+
+    assert captured["agent_task_id"] == "10"
+    assert captured["tracking_task_id"] == "10"
+    assert captured["agent_task"] == "重试"
+
+
+class _NoopAgentService:
+    def set_conversation_history(self, history):
+        pass
+
+    def set_execution_context_messages(self, messages):
+        pass
+
+    def set_recovered_skill_context(self, skill_context):
+        pass
+
+
+class _NoopBackgroundTaskManager:
+    async def wait_for_previous(self, task_id):
+        pass
+
+    def cleanup_task(self, task_id):
+        pass
+
+
+def _wire_execute_task_background(monkeypatch, db_session, manager):
+    """Wire execute_task_background's collaborators to the test session.
+
+    ``get_session_local`` is pointed at the same engine as ``db_session``
+    so the failure handler's status probe (and the terminal payload
+    writer, when not stubbed) read the row the test committed.
+    """
+
+    def fake_get_db():
+        yield db_session
+
+    def fake_release(db, task_id, *, status):
+        return True
+
+    test_sessionmaker = sessionmaker(bind=db_session.get_bind())
+
+    monkeypatch.setattr(
+        websocket_api, "background_task_manager", _NoopBackgroundTaskManager()
+    )
+    monkeypatch.setattr(websocket_api, "manager", manager)
+    monkeypatch.setattr(
+        websocket_api,
+        "release_current_runner_task_lease_with_workforce_sync",
+        fake_release,
+    )
+    monkeypatch.setattr(websocket_api, "get_session_local", lambda: test_sessionmaker)
+    monkeypatch.setattr(database_models, "get_db", fake_get_db)
+
+    def fake_persist_assistant_message(db, *args, **kwargs):
+        # The real helper commits the session; mirror that so the pending
+        # terminal status set by execute_task_background is durably landed
+        # (the status commit now rides on the assistant-message write).
+        db.commit()
+
+    monkeypatch.setattr(
+        "xagent.web.services.chat_history_service.persist_assistant_message",
+        fake_persist_assistant_message,
+    )
+
+
+@pytest.mark.asyncio
+async def test_completion_broadcast_failure_keeps_task_completed(
+    db_session, monkeypatch
+):
+    """A failure in the post-completion broadcast must not be treated as an
+    execution failure: the already-COMPLETED row is left untouched, no
+    task_error is emitted, and the terminal failure writer is not invoked."""
+    user = _create_user(db_session, 1, "owner")
+    _create_task(db_session, task_id=10, user_id=1, status=TaskStatus.RUNNING)
+    db_session.commit()
+
+    sent_events: list[object] = []
+    payload_calls: list[tuple] = []
+
+    class BroadcastManager:
+        async def broadcast_to_task(self, event, task_id):
+            etype = event.get("type") if isinstance(event, dict) else None
+            sent_events.append(etype)
+            if etype == "task_completed":
+                raise RuntimeError("websocket client disconnected")
+
+    class AgentManager:
+        async def get_agent_for_task(self, task_id, db, **kwargs):
+            return _NoopAgentService()
+
+        async def execute_task(self, **kwargs):
+            return {"success": True, "output": "ok", "file_outputs": []}
+
+    def fake_payload(task_id, message, *, event_type="agent_error"):
+        payload_calls.append((task_id, message, event_type))
+        return {"type": event_type, "task_id": task_id}
+
+    _wire_execute_task_background(monkeypatch, db_session, BroadcastManager())
+    monkeypatch.setattr(websocket_api, "_terminal_task_error_payload", fake_payload)
+
+    await execute_task_background(
+        task_id=10,
+        user_message="hi",
+        context={},
+        agent_manager=AgentManager(),
+        task_owner_user_id=int(user.id),
+        llm_user_message="hi",
+    )
+
+    db_session.expire_all()
+    task = db_session.query(Task).filter(Task.id == 10).first()
+    assert task.status == TaskStatus.COMPLETED
+    assert task.error_message is None
+    assert "task_completed" in sent_events
+    assert "task_error" not in sent_events
+    assert payload_calls == []
+
+
+@pytest.mark.asyncio
+async def test_execution_failure_routes_real_error_to_terminal_payload(
+    db_session, monkeypatch
+):
+    """A genuine execution failure (task still RUNNING) routes the real
+    exception text through _terminal_task_error_payload (which persists
+    FAILED + error_message) and emits task_error."""
+    user = _create_user(db_session, 1, "owner")
+    _create_task(db_session, task_id=11, user_id=1, status=TaskStatus.RUNNING)
+    db_session.commit()
+
+    sent_events: list[object] = []
+    payload_calls: list[tuple] = []
+
+    class BroadcastManager:
+        async def broadcast_to_task(self, event, task_id):
+            sent_events.append(event.get("type") if isinstance(event, dict) else None)
+
+    class AgentManager:
+        async def get_agent_for_task(self, task_id, db, **kwargs):
+            return _NoopAgentService()
+
+        async def execute_task(self, **kwargs):
+            raise RuntimeError("agent boom xyz")
+
+    def fake_payload(task_id, message, *, event_type="agent_error"):
+        payload_calls.append((task_id, message, event_type))
+        return {"type": event_type, "task_id": task_id}
+
+    _wire_execute_task_background(monkeypatch, db_session, BroadcastManager())
+    monkeypatch.setattr(websocket_api, "_terminal_task_error_payload", fake_payload)
+
+    await execute_task_background(
+        task_id=11,
+        user_message="hi",
+        context={},
+        agent_manager=AgentManager(),
+        task_owner_user_id=int(user.id),
+        llm_user_message="hi",
+    )
+
+    assert payload_calls == [(11, "agent boom xyz", "task_error")]
+    assert "task_error" in sent_events
+
+
+@pytest.mark.asyncio
+async def test_assistant_persist_failure_surfaces_as_task_failure(
+    db_session, monkeypatch
+):
+    """Assistant-message persistence is a durable write, not best-effort.
+    If it fails after a successful agent result, the terminal status must
+    not have been committed (it is pending until the message lands), so
+    the failure is surfaced through _terminal_task_error_payload rather
+    than leaving a COMPLETED row with no message."""
+    user = _create_user(db_session, 1, "owner")
+    _create_task(db_session, task_id=12, user_id=1, status=TaskStatus.RUNNING)
+    db_session.commit()
+
+    payload_calls: list[tuple] = []
+
+    class BroadcastManager:
+        async def broadcast_to_task(self, event, task_id):
+            pass
+
+    class AgentManager:
+        async def get_agent_for_task(self, task_id, db, **kwargs):
+            return _NoopAgentService()
+
+        async def execute_task(self, **kwargs):
+            return {"success": True, "output": "ok", "file_outputs": []}
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("durable persist failed")
+
+    def fake_payload(task_id, message, *, event_type="agent_error"):
+        payload_calls.append((task_id, event_type))
+        return {"type": event_type, "task_id": task_id}
+
+    _wire_execute_task_background(monkeypatch, db_session, BroadcastManager())
+    # Override the no-op persist with one that fails (durable write error).
+    monkeypatch.setattr(
+        "xagent.web.services.chat_history_service.persist_assistant_message", boom
+    )
+    monkeypatch.setattr(websocket_api, "_terminal_task_error_payload", fake_payload)
+
+    await execute_task_background(
+        task_id=12,
+        user_message="hi",
+        context={},
+        agent_manager=AgentManager(),
+        task_owner_user_id=int(user.id),
+        llm_user_message="hi",
+    )
+
+    # The COMPLETED status was never committed (pending until the message
+    # write that failed), so the status probe still sees RUNNING and the
+    # failure is routed to the terminal payload writer.
+    assert payload_calls == [(12, "task_error")]
+
+
+@pytest.mark.asyncio
+async def test_empty_reply_turn_still_completes(db_session, monkeypatch):
+    """An empty assistant reply makes persist_assistant_message
+    early-return WITHOUT committing. The explicit terminal commit must
+    still land COMPLETED, so a successful empty turn is not left RUNNING
+    (and later flipped to FAILED by finish_turn)."""
+    user = _create_user(db_session, 1, "owner")
+    _create_task(db_session, task_id=13, user_id=1, status=TaskStatus.RUNNING)
+    db_session.commit()
+
+    payload_calls: list[tuple] = []
+
+    class BroadcastManager:
+        async def broadcast_to_task(self, event, task_id):
+            pass
+
+    class AgentManager:
+        async def get_agent_for_task(self, task_id, db, **kwargs):
+            return _NoopAgentService()
+
+        async def execute_task(self, **kwargs):
+            return {"success": True, "output": "ok", "file_outputs": []}
+
+    def fake_payload(task_id, message, *, event_type="agent_error"):
+        payload_calls.append((task_id, event_type))
+        return {"type": event_type, "task_id": task_id}
+
+    _wire_execute_task_background(monkeypatch, db_session, BroadcastManager())
+    # Empty-content path: persist early-returns None without committing.
+    monkeypatch.setattr(
+        "xagent.web.services.chat_history_service.persist_assistant_message",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(websocket_api, "_terminal_task_error_payload", fake_payload)
+
+    await execute_task_background(
+        task_id=13,
+        user_message="hi",
+        context={},
+        agent_manager=AgentManager(),
+        task_owner_user_id=int(user.id),
+        llm_user_message="hi",
+    )
+
+    db_session.expire_all()
+    task = db_session.query(Task).filter(Task.id == 13).first()
+    assert task.status == TaskStatus.COMPLETED
+    assert payload_calls == []
 
 
 def test_build_uploaded_files_context_includes_agent_builder_kb_instruction():
@@ -308,7 +680,7 @@ def test_normalize_file_outputs_rejects_foreign_untracked_storage_path(
     assert db_session.query(UploadedFile).count() == 0
 
 
-def test_normalize_file_outputs_registers_current_task_output_path(
+def test_normalize_file_outputs_accepts_registered_agent_workspace_output(
     db_session,
     tmp_path,
     monkeypatch,
@@ -317,15 +689,131 @@ def test_normalize_file_outputs_registers_current_task_output_path(
     monkeypatch.setenv("XAGENT_UPLOADS_DIR", str(uploads_dir))
     _create_user(db_session, 1, "owner")
     _create_task(db_session, task_id=20, user_id=1)
-    output_path = uploads_dir / "user_1" / "web_task_20" / "output" / "report.txt"
-    output_path.parent.mkdir(parents=True)
-    output_path.write_text("report")
+    worker_path = uploads_dir / "agent_2_abcd1234" / "output" / "report.txt"
+    worker_path.parent.mkdir(parents=True)
+    worker_path.write_text("report")
+    db_session.add(
+        UploadedFile(
+            file_id="delegated-output",
+            user_id=1,
+            task_id=20,
+            filename="report.txt",
+            storage_path=str(worker_path),
+            mime_type="text/plain",
+            file_size=len("report"),
+            workspace_relative_path="output/report.txt",
+            workspace_category="output",
+        )
+    )
+    db_session.flush()
 
     normalized_outputs, path_to_file_id = _normalize_file_outputs(
         db_session,
         task_id=20,
         task_user_id=1,
-        file_outputs=[{"path": str(output_path), "filename": "report.txt"}],
+        file_outputs=[{"path": str(worker_path), "filename": "report.txt"}],
+    )
+
+    assert len(normalized_outputs) == 1
+    assert normalized_outputs[0]["file_id"] == "delegated-output"
+    assert normalized_outputs[0]["download_url"] == (
+        "/api/files/download/delegated-output"
+    )
+    assert path_to_file_id[str(worker_path)] == "delegated-output"
+    assert path_to_file_id["output/report.txt"] == "delegated-output"
+    assert db_session.query(UploadedFile).count() == 1
+
+
+def test_normalize_file_outputs_rejects_registered_non_output_agent_file(
+    db_session,
+    tmp_path,
+    monkeypatch,
+):
+    uploads_dir = tmp_path / "uploads"
+    monkeypatch.setenv("XAGENT_UPLOADS_DIR", str(uploads_dir))
+    _create_user(db_session, 1, "owner")
+    _create_task(db_session, task_id=20, user_id=1)
+    worker_path = uploads_dir / "agent_2_abcd1234" / "input" / "secret.txt"
+    worker_path.parent.mkdir(parents=True)
+    worker_path.write_text("secret")
+    db_session.add(
+        UploadedFile(
+            file_id="delegated-input",
+            user_id=1,
+            task_id=20,
+            filename="secret.txt",
+            storage_path=str(worker_path),
+            mime_type="text/plain",
+            file_size=len("secret"),
+            workspace_relative_path="input/secret.txt",
+            workspace_category="input",
+        )
+    )
+    db_session.flush()
+
+    normalized_outputs, path_to_file_id = _normalize_file_outputs(
+        db_session,
+        task_id=20,
+        task_user_id=1,
+        file_outputs=[{"path": str(worker_path), "filename": "secret.txt"}],
+    )
+
+    assert normalized_outputs == []
+    assert path_to_file_id == {}
+
+
+def test_normalize_file_outputs_registers_current_task_output_path(
+    db_session,
+    tmp_path,
+    monkeypatch,
+):
+    uploads_dir = tmp_path / "uploads"
+    monkeypatch.setenv("XAGENT_UPLOADS_DIR", str(uploads_dir))
+    monkeypatch.setenv("XAGENT_FILE_STORAGE_URI", (tmp_path / "objects").as_uri())
+    get_file_storage.cache_clear()
+    _create_user(db_session, 1, "owner")
+    _create_task(db_session, task_id=20, user_id=1)
+    output_path = uploads_dir / "user_1" / "web_task_20" / "output" / "report.txt"
+    output_path.parent.mkdir(parents=True)
+    output_path.write_text("report")
+
+    try:
+        normalized_outputs, path_to_file_id = _normalize_file_outputs(
+            db_session,
+            task_id=20,
+            task_user_id=1,
+            file_outputs=[{"path": str(output_path), "filename": "report.txt"}],
+        )
+    finally:
+        get_file_storage.cache_clear()
+
+    assert len(normalized_outputs) == 1
+    assert normalized_outputs[0]["filename"] == "report.txt"
+    assert path_to_file_id[str(output_path)] == normalized_outputs[0]["file_id"]
+    file_record = db_session.query(UploadedFile).one()
+    assert file_record.user_id == 1
+    assert file_record.task_id == 20
+    assert file_record.storage_path == str(output_path)
+
+
+def test_normalize_task_file_outputs_registers_preview_output_normally(
+    db_session,
+    tmp_path,
+    monkeypatch,
+):
+    uploads_dir = tmp_path / "uploads"
+    monkeypatch.setenv("XAGENT_UPLOADS_DIR", str(uploads_dir))
+    _create_user(db_session, 1, "owner")
+    task = _create_task(db_session, task_id=20, user_id=1)
+    task.agent_config = {"is_preview": True}
+    output_path = uploads_dir / "user_1" / "web_task_20" / "output" / "report.txt"
+    output_path.parent.mkdir(parents=True)
+    output_path.write_text("preview report")
+
+    normalized_outputs, path_to_file_id = _normalize_task_file_outputs(
+        db_session,
+        task,
+        [{"path": str(output_path), "filename": "report.txt"}],
     )
 
     assert len(normalized_outputs) == 1
@@ -372,23 +860,13 @@ async def test_handle_file_upload_for_task_rejects_unowned_and_wrong_task_files(
         filename="other-task.txt",
     )
 
-    class Workspace:
-        def __init__(self):
-            self.input_dir = str(tmp_path / "workspace" / "input")
-            self.registered_files = []
-
-        def register_file(self, path, file_id, db_session=None):
-            self.registered_files.append((path, file_id, db_session))
-
-    workspace = Workspace()
-
-    class Manager:
-        async def get_agent_for_task(self, task_id, db, user=None):
-            return SimpleNamespace(workspace=workspace)
-
     import xagent.web.api.chat as chat_api
 
-    monkeypatch.setattr(chat_api, "get_agent_manager", lambda: Manager())
+    monkeypatch.setattr(
+        chat_api,
+        "get_agent_manager",
+        lambda: pytest.fail("file staging must not create an AgentService"),
+    )
 
     result = await handle_file_upload_for_task(
         10,
@@ -403,9 +881,48 @@ async def test_handle_file_upload_for_task_rejects_unowned_and_wrong_task_files(
     )
 
     assert [item["file_id"] for item in result["file_info_list"]] == ["valid-file"]
-    assert [item[1] for item in workspace.registered_files] == ["valid-file"]
     db_session.refresh(valid_file)
     assert valid_file.task_id == 10
+
+
+def test_register_uploaded_files_for_agent_uses_execution_db_session(
+    db_session,
+    tmp_path,
+):
+    upload = _create_uploaded_file(
+        db_session,
+        tmp_path,
+        file_id="valid-file",
+        user_id=1,
+        task_id=10,
+        filename="valid file.txt",
+    )
+
+    class Workspace:
+        def __init__(self):
+            self.input_dir = str(tmp_path / "workspace" / "input")
+            self.registered_files = []
+
+        def register_file(self, path, file_id, db_session=None):
+            self.registered_files.append((path, file_id, db_session))
+
+    workspace = Workspace()
+    file_info = {
+        "file_id": "valid-file",
+        "name": "valid_file.txt",
+        "path": str(upload.storage_path),
+        "workspace_path": None,
+    }
+
+    _register_uploaded_files_for_agent(
+        SimpleNamespace(workspace=workspace),
+        [file_info],
+        db_session,
+    )
+
+    assert [item[1] for item in workspace.registered_files] == ["valid-file"]
+    assert workspace.registered_files[0][2] is db_session
+    assert file_info["workspace_path"]
 
 
 def test_get_display_user_message_reads_agent_context_state():
@@ -424,9 +941,134 @@ def test_get_display_user_message_reads_agent_context_state():
     )
 
 
+def test_get_display_user_message_prefers_latest_message_metadata():
+    context = SimpleNamespace(
+        metadata={
+            "display_user_message": "First turn",
+        },
+        messages=[
+            SimpleNamespace(
+                role="user",
+                content="First turn",
+                metadata={"display_message": "First turn"},
+            ),
+            SimpleNamespace(
+                role="user",
+                content="Second turn\n\n## UPLOADED FILES\nfile_id=file-123",
+                metadata={"display_message": "Second turn"},
+            ),
+        ],
+    )
+
+    assert get_display_user_message(context, "fallback") == "Second turn"
+
+
+def test_get_display_user_message_does_not_reuse_stale_context_display():
+    context = SimpleNamespace(
+        metadata={
+            "display_user_message": "First turn",
+        },
+        messages=[
+            SimpleNamespace(
+                role="user",
+                content="First turn",
+                metadata={"display_message": "First turn"},
+            ),
+            SimpleNamespace(
+                role="user",
+                content="Second turn",
+                metadata={},
+            ),
+        ],
+    )
+
+    assert get_display_user_message(context, "fallback") == "Second turn"
+
+
+def test_get_display_user_message_respects_empty_display_metadata():
+    context = SimpleNamespace(
+        messages=[
+            SimpleNamespace(
+                role="user",
+                content="Internal prompt\n\n## UPLOADED FILES\nfile_id=file-123",
+                metadata={"display_message": ""},
+            ),
+        ],
+    )
+
+    assert get_display_user_message(context, "fallback") == ""
+
+
 def test_display_message_for_file_only_turn_uses_placeholder():
     assert _display_message_for_user("", has_files=True) == "Uploaded file(s)"
     assert (
         _display_message_for_user("Summarize this document", has_files=True)
         == "Summarize this document"
     )
+
+
+def test_display_file_refs_from_file_info_omits_runtime_paths():
+    refs = _display_file_refs_from_file_info(
+        [
+            {
+                "file_id": 123,
+                "name": "notes.txt",
+                "size": 42,
+                "type": "text/plain",
+                "path": "/internal/uploads/notes.txt",
+                "workspace_path": "/workspace/input/notes.txt",
+            }
+        ]
+    )
+
+    assert refs == [
+        {
+            "file_id": "123",
+            "name": "notes.txt",
+            "size": 42,
+            "type": "text/plain",
+        }
+    ]
+    assert "path" not in refs[0]
+    assert "workspace_path" not in refs[0]
+
+
+def test_normalize_attachments_keeps_chip_fields_and_strips_paths():
+    """Only chip-relevant fields persist; absolute paths must not leak
+    into chat history (which is exposed to historical-replay clients)."""
+    raw = [
+        {
+            "file_id": "uuid-1",
+            "name": "normalized.xlsx",
+            "original_name": "Q1 Report.xlsx",
+            "size": 12345,
+            "type": (
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ),
+            "path": "/abs/leak/should/be/stripped.xlsx",
+        }
+    ]
+    assert _normalize_attachments_for_persistence(raw) == [
+        {
+            "file_id": "uuid-1",
+            "name": "Q1 Report.xlsx",  # original_name preferred over name
+            "size": 12345,
+            "type": (
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ),
+        }
+    ]
+
+
+def test_normalize_attachments_drops_entries_without_file_id():
+    assert _normalize_attachments_for_persistence(
+        [
+            {"name": "no-id.txt", "size": 1},
+            {"file_id": "keep", "name": "keep.txt"},
+        ]
+    ) == [{"file_id": "keep", "name": "keep.txt", "size": None, "type": None}]
+
+
+def test_normalize_attachments_handles_empty():
+    assert _normalize_attachments_for_persistence([]) == []
+    assert _normalize_attachments_for_persistence(None) == []

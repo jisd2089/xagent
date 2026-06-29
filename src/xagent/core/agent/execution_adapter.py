@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+from ...config import get_tool_max_concurrency, get_tool_parallel_enabled
 from .agent import Agent
 from .pattern import AutoPattern, DAGPattern, LLMPlanGenerator, ReActPattern
 from .registry import ExecutionRegistry
@@ -18,6 +19,7 @@ class AgentExecutionConfig:
     name: str
     pattern: str
     llm: Any | None
+    compact_llm: Any | None = None
     tools: list[Any] = field(default_factory=list)
     tracer: Any | None = None
     system_prompt: str | None = None
@@ -27,6 +29,8 @@ class AgentExecutionConfig:
     service_id: str | None = None
     registry: ExecutionRegistry | None = None
     dag_max_concurrency: int = 4
+    tool_parallel_enabled: bool = field(default_factory=get_tool_parallel_enabled)
+    tool_max_concurrency: int = field(default_factory=get_tool_max_concurrency)
     outbound_message_handler: Any | None = None
     conversation_history: list[dict[str, Any]] = field(default_factory=list)
     execution_context_messages: list[dict[str, Any]] = field(default_factory=list)
@@ -81,6 +85,7 @@ class AgentExecutionAdapter:
                 "request_context": dict(context or {}),
                 "selected_skill_context": self.config.recovered_skill_context,
             },
+            workspace_id=self._workspace_id(execution_id),
             allowed_external_dirs=self.config.allowed_external_dirs,
             initial_messages=self._initial_messages(),
         )
@@ -118,6 +123,7 @@ class AgentExecutionAdapter:
                 "request_context": dict(context or {}),
                 "selected_skill_context": self.config.recovered_skill_context,
             },
+            workspace_id=self._workspace_id(execution_id),
             allowed_external_dirs=self.config.allowed_external_dirs,
             initial_messages=self._initial_messages(),
         )
@@ -127,6 +133,7 @@ class AgentExecutionAdapter:
         return self.registry.pause(execution_id, reason=reason)
 
     async def resume(self, execution_id: str, **kwargs: Any) -> dict[str, Any] | None:
+        kwargs.setdefault("workspace_id", self._workspace_id(execution_id))
         handle = self.registry.get(execution_id)
         if handle is None:
             runner, execution_type = self._build_runner()
@@ -155,8 +162,11 @@ class AgentExecutionAdapter:
     async def post_user_message(
         self,
         execution_id: str,
-        message: str,
+        message: str | None = None,
         *,
+        execution_message: str | None = None,
+        display_message: str | None = None,
+        files: list[dict[str, Any]] | None = None,
         request_interrupt: bool = True,
         reason: str | None = None,
     ) -> bool:
@@ -173,6 +183,9 @@ class AgentExecutionAdapter:
         context = await self.registry.post_user_message(
             execution_id,
             message,
+            execution_message=execution_message,
+            display_message=display_message,
+            files=files,
             request_interrupt=request_interrupt,
             reason=reason,
         )
@@ -187,6 +200,11 @@ class AgentExecutionAdapter:
     def list_statuses(self) -> list[dict[str, Any]]:
         return self.registry.list_statuses()
 
+    def _workspace_id(self, execution_id: str) -> str:
+        return str(
+            self.config.service_id or self.config.current_task_id or execution_id
+        )
+
     def _build_runner(self) -> tuple[AgentRunner, str]:
         pattern, execution_type = self._build_pattern()
         skill_manager = self.config.skill_manager
@@ -199,6 +217,7 @@ class AgentExecutionAdapter:
             patterns=[pattern],
             tools=self.config.tools,
             llm=self.config.llm,
+            compact_llm=self.config.compact_llm,
             system_prompt=self.config.system_prompt,
             metadata={"pattern": self.config.pattern},
             memory_store=self.config.memory_store,
@@ -229,19 +248,34 @@ class AgentExecutionAdapter:
         if self.config.pattern == "auto":
             return (
                 AutoPattern(
+                    react_pattern=ReActPattern(
+                        tool_parallel_enabled=self.config.tool_parallel_enabled,
+                        tool_max_concurrency=self.config.tool_max_concurrency,
+                    ),
                     dag_pattern=DAGPattern(
                         LLMPlanGenerator(),
                         max_concurrency=self.config.dag_max_concurrency,
-                    )
+                    ),
                 ),
                 "agent_auto",
             )
         if self.config.pattern == "single_call":
             return (
-                ReActPattern(max_iterations=2, finalize_after_tool_result=True),
+                ReActPattern(
+                    max_iterations=2,
+                    finalize_after_tool_result=True,
+                    tool_parallel_enabled=self.config.tool_parallel_enabled,
+                    tool_max_concurrency=self.config.tool_max_concurrency,
+                ),
                 "agent_single_call",
             )
-        return ReActPattern(), "agent_react"
+        return (
+            ReActPattern(
+                tool_parallel_enabled=self.config.tool_parallel_enabled,
+                tool_max_concurrency=self.config.tool_max_concurrency,
+            ),
+            "agent_react",
+        )
 
     def _initial_messages(self) -> list[dict[str, Any]]:
         return [

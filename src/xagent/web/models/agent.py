@@ -19,6 +19,13 @@ class AgentStatus(enum.Enum):
     ARCHIVED = "archived"
 
 
+class AgentOrigin(enum.Enum):
+    """Where an agent came from."""
+
+    USER = "user"
+    WORKFORCE_GENERATED_MANAGER = "workforce_generated_manager"
+
+
 class ExecutionMode(enum.Enum):
     """Agent execution mode enumeration"""
 
@@ -63,8 +70,17 @@ class Agent(Base):  # type: ignore
     allowed_domains = Column(
         JSON, nullable=True, default=list
     )  # List of allowed domains for the widget
+    share_enabled = Column(Boolean, default=False, nullable=False)
+    share_token = Column(String(255), nullable=True, index=True)
+    share_updated_at = Column(DateTime(timezone=True), nullable=True)
 
     # Status
+    origin = Column(
+        String(50),
+        default=AgentOrigin.USER.value,
+        nullable=False,
+        index=True,
+    )
     status: AgentStatus = Column(
         SQLEnum(AgentStatus, values_callable=lambda obj: [e.value for e in obj]),
         default=AgentStatus.DRAFT,
@@ -83,6 +99,27 @@ class Agent(Base):  # type: ignore
 
     # Relationships
     user = relationship("User", back_populates="agents")
+    triggers = relationship(
+        "AgentTrigger", back_populates="agent", cascade="all, delete-orphan"
+    )
+
+    @property
+    def is_workforce_generated_manager(self) -> bool:
+        origin = getattr(self.origin, "value", self.origin)
+        return bool(origin == AgentOrigin.WORKFORCE_GENERATED_MANAGER.value)
 
     def __repr__(self) -> str:
         return f"<Agent(id={self.id}, name='{self.name}', status='{self.status}')>"
+
+
+def is_workforce_generated_manager_agent(agent: object | None) -> bool:
+    if agent is None:
+        return False
+
+    marker = getattr(agent, "is_workforce_generated_manager", None)
+    if isinstance(marker, bool):
+        return marker
+
+    origin = getattr(agent, "origin", None)
+    origin = getattr(origin, "value", origin)
+    return origin == AgentOrigin.WORKFORCE_GENERATED_MANAGER.value

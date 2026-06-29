@@ -12,11 +12,13 @@ from lark_oapi.api.im.v1 import (
     PatchMessageRequestBody,
 )
 
+from ....config import get_default_task_execution_mode
 from ...api.chat import get_agent_manager
 from ...models.database import get_db
 from ...models.task import Task, TaskStatus
 from ...models.user import User
 from ...models.user_channel import UserChannel
+from ...services.execution_result_projection import project_execution_result_for_channel
 from .trace_handler import FeishuTraceHandler
 
 logger = logging.getLogger(__name__)
@@ -220,7 +222,6 @@ class FeishuBotInstance:
                     .first()
                 )
 
-            was_completed_or_failed = False
             if not task:
                 is_new_task = True
 
@@ -233,6 +234,7 @@ class FeishuBotInstance:
                     title=task_title,
                     description=text,
                     status=TaskStatus.PENDING,
+                    execution_mode=get_default_task_execution_mode(),
                     channel_id=self.channel_id,
                     channel_name=self.channel_name,
                 )
@@ -243,10 +245,6 @@ class FeishuBotInstance:
                 self._save_active_tasks()
             else:
                 is_new_task = False
-                was_completed_or_failed = task.status in [
-                    TaskStatus.COMPLETED,
-                    TaskStatus.FAILED,
-                ]
                 task.status = TaskStatus.PENDING
                 db.commit()
 
@@ -308,8 +306,7 @@ class FeishuBotInstance:
 
             from ...user_isolated_memory import UserContext
 
-            force_fresh_execution = not is_new_task and was_completed_or_failed
-            actual_task_id = None if force_fresh_execution else str(task.id)
+            actual_task_id = str(task.id)
 
             with UserContext(int(user.id)):
                 result = await agent_manager.execute_task(
@@ -321,44 +318,11 @@ class FeishuBotInstance:
                     db_session=db,
                 )
 
-            task.status = (
-                TaskStatus.COMPLETED
-                if result.get("success", False)
-                else TaskStatus.FAILED
-            )
+            projection = project_execution_result_for_channel(result)
+            task.status = projection.task_status
             db.commit()
 
-            output = result.get("output", "")
-
-            chat_response = result.get("chat_response")
-            if isinstance(chat_response, dict):
-                interactions = chat_response.get("interactions", [])
-                if interactions:
-                    interaction_texts = []
-                    for interaction in interactions:
-                        label = interaction.get("label") or interaction.get(
-                            "field", "Input"
-                        )
-                        options = interaction.get("options", [])
-                        if options:
-                            opts = []
-                            for opt in options:
-                                if isinstance(opt, dict):
-                                    opts.append(
-                                        str(opt.get("label", opt.get("value", "")))
-                                    )
-                                else:
-                                    opts.append(str(opt))
-                            interaction_texts.append(
-                                f"• {label}\n  Options: {', '.join(opts)}"
-                            )
-                        else:
-                            interaction_texts.append(f"• {label}")
-                    if interaction_texts:
-                        output += "\n\n" + "\n".join(interaction_texts)
-
-            if not output or not str(output).strip():
-                output = "Task completed, but no output was generated."
+            output = projection.visible_text
 
             max_len = 4000
             text_chunks = [
@@ -397,7 +361,7 @@ class FeishuBotInstance:
 
         from lark_oapi.api.im.v1 import GetMessageResourceRequest
 
-        from ...models.uploaded_file import UploadedFile
+        from ...services.uploaded_file_store import UploadedFileStore
 
         uploaded_files_info: list[dict] = []
 
@@ -474,15 +438,14 @@ class FeishuBotInstance:
 
                 file_size = target_path.stat().st_size
 
-                file_record = UploadedFile(
+                file_record = UploadedFileStore(db).create_from_local_path(
+                    local_path=target_path,
                     user_id=user_id,
                     task_id=task_id,
                     filename=normalized_file_name,
-                    storage_path=str(target_path),
                     mime_type=mime_type,
-                    file_size=file_size,
                 )
-                db.add(file_record)
+                file_record.file_size = file_size
                 db.flush()
 
                 agent_service.workspace.register_file(

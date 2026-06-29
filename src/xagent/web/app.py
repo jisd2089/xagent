@@ -10,8 +10,18 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.types import ASGIApp, Receive, Scope, Send
 
-from ..config import get_uploads_dir
+from ..config import (
+    get_agent_runtime,
+    get_file_storage_startup_sync_enabled,
+    get_session_secret,
+    get_trigger_dispatcher_batch_size,
+    get_trigger_dispatcher_enabled,
+    get_trigger_dispatcher_interval_seconds,
+    get_uploads_dir,
+)
 from ..core.tracing.langfuse import flush_langfuse, initialize_langfuse
 from .api.admin_mcp import admin_mcp_router
 from .api.admin_users import router as admin_users_router
@@ -22,21 +32,25 @@ from .api.chat import chat_router
 from .api.cloud_storage import cloud_router
 from .api.custom_api import custom_api_router
 from .api.files import file_router
+from .api.jobs import jobs_router
 from .api.kb import kb_router
 from .api.mcp import mcp_router
+from .api.me import router as me_router
 from .api.memory import MemoryManagementRouter
 from .api.model import model_router
 from .api.monitor import monitor_router
 from .api.progress_ws import progress_ws_router
+from .api.share import share_router
 from .api.skills import router as skills_router
 from .api.system import system_router
 from .api.templates import router as templates_router
 from .api.tools import tools_router
+from .api.triggers import router as triggers_router
 from .api.v1 import v1_router
 from .api.v1.errors import V1ApiError, v1_api_error_handler
 from .api.websocket import ws_router
 from .api.widget import widget_router
-from .api.wiki import wiki_router
+from .api.workforces import router as workforces_router
 from .dynamic_memory_store import get_memory_store
 from .logging_config import setup_logging
 from .models.database import init_db
@@ -62,12 +76,283 @@ app = FastAPI(
 
 # Track background migration task for graceful shutdown cleanup.
 _migration_task: asyncio.Task[None] | None = None
+_file_storage_startup_sync_task: asyncio.Task[Any] | None = None
+_trigger_dispatcher_task: asyncio.Task[Any] | None = None
+
+FILE_STORAGE_STARTUP_SYNC_EXEMPT_PATHS = frozenset({"/health", "/ready"})
+FILE_STORAGE_STARTUP_SYNC_RETRY_INTERVAL_SECONDS = 5.0
+FILE_STORAGE_STARTUP_SYNC_GATE_POLL_INTERVAL_SECONDS = 0.25
+
+
+def run_startup_file_storage_sync() -> None:
+    """Synchronize DB-registered local files into durable S3 storage."""
+    if not get_file_storage_startup_sync_enabled():
+        logger.info("Startup file storage sync is disabled")
+        return
+
+    from .models.database import get_session_local
+    from .services.startup_file_storage_sync import (
+        sync_registered_files_to_durable_storage,
+    )
+
+    SessionLocal = get_session_local()
+    db = SessionLocal()
+    try:
+        result = sync_registered_files_to_durable_storage(db)
+        if result.failed:
+            raise RuntimeError(
+                "Startup file storage sync failed for "
+                f"{result.failed} registered file(s)"
+            )
+    finally:
+        db.close()
+
+
+async def _run_file_storage_startup_sync_with_retries(
+    app_instance: FastAPI,
+    *,
+    retry_interval_seconds: float,
+) -> None:
+    while True:
+        try:
+            await asyncio.to_thread(run_startup_file_storage_sync)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            app_instance.state.file_storage_startup_sync_error = exc
+            app_instance.state.file_storage_startup_sync_completed = False
+            logger.error(
+                "Startup file storage sync failed; retrying in %s seconds: %s",
+                retry_interval_seconds,
+                exc,
+                exc_info=True,
+            )
+            await asyncio.sleep(retry_interval_seconds)
+        else:
+            app_instance.state.file_storage_startup_sync_error = None
+            app_instance.state.file_storage_startup_sync_completed = True
+            return
+
+
+def start_file_storage_startup_sync_task(
+    app_instance: FastAPI,
+    *,
+    retry_interval_seconds: float | None = None,
+) -> asyncio.Task[Any] | None:
+    """Start durable file storage startup sync without blocking app startup."""
+    global _file_storage_startup_sync_task
+
+    app_instance.state.file_storage_startup_sync_task = None
+    app_instance.state.file_storage_startup_sync_error = None
+
+    if not get_file_storage_startup_sync_enabled():
+        logger.info("Startup file storage sync is disabled")
+        app_instance.state.file_storage_startup_sync_completed = True
+        return None
+
+    resolved_retry_interval_seconds = (
+        FILE_STORAGE_STARTUP_SYNC_RETRY_INTERVAL_SECONDS
+        if retry_interval_seconds is None
+        else retry_interval_seconds
+    )
+    task = asyncio.create_task(
+        _run_file_storage_startup_sync_with_retries(
+            app_instance,
+            retry_interval_seconds=resolved_retry_interval_seconds,
+        )
+    )
+    _file_storage_startup_sync_task = task
+    app_instance.state.file_storage_startup_sync_task = task
+    app_instance.state.file_storage_startup_sync_completed = False
+
+    def _record_file_storage_sync_result(done_task: asyncio.Task[Any]) -> None:
+        try:
+            done_task.result()
+        except asyncio.CancelledError:
+            app_instance.state.file_storage_startup_sync_error = None
+            app_instance.state.file_storage_startup_sync_completed = False
+        except Exception as exc:  # noqa: BLE001
+            app_instance.state.file_storage_startup_sync_error = exc
+            app_instance.state.file_storage_startup_sync_completed = False
+            logger.error("Startup file storage sync failed: %s", exc, exc_info=True)
+        else:
+            app_instance.state.file_storage_startup_sync_error = None
+            app_instance.state.file_storage_startup_sync_completed = True
+
+    task.add_done_callback(_record_file_storage_sync_result)
+    logger.info("Started background startup file storage sync task")
+    return task
+
+
+async def _run_trigger_dispatcher(
+    *,
+    poll_interval_seconds: int,
+    batch_size: int,
+) -> None:
+    from .models.database import get_session_local
+    from .services.triggers import dispatch_pending_trigger_runs
+
+    while True:
+        try:
+            SessionLocal = get_session_local()
+            db = SessionLocal()
+            try:
+                started = await dispatch_pending_trigger_runs(db, limit=batch_size)
+                if started:
+                    logger.info("Trigger dispatcher started %s trigger run(s)", started)
+            finally:
+                db.close()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Trigger dispatcher tick failed: %s", exc, exc_info=True)
+
+        await asyncio.sleep(poll_interval_seconds)
+
+
+def start_trigger_dispatcher_task(app_instance: FastAPI) -> asyncio.Task[Any] | None:
+    """Start backend-side trigger execution dispatcher."""
+    global _trigger_dispatcher_task
+
+    app_instance.state.trigger_dispatcher_task = None
+    if not get_trigger_dispatcher_enabled():
+        logger.info("Trigger dispatcher is disabled")
+        return None
+    if os.getenv("PYTEST_CURRENT_TEST"):
+        logger.info("Skipping trigger dispatcher (test environment)")
+        return None
+
+    poll_interval_seconds = get_trigger_dispatcher_interval_seconds()
+    batch_size = get_trigger_dispatcher_batch_size()
+    task = asyncio.create_task(
+        _run_trigger_dispatcher(
+            poll_interval_seconds=poll_interval_seconds,
+            batch_size=batch_size,
+        )
+    )
+    _trigger_dispatcher_task = task
+    app_instance.state.trigger_dispatcher_task = task
+    logger.info(
+        "Started trigger dispatcher task (interval=%ss, batch_size=%s)",
+        poll_interval_seconds,
+        batch_size,
+    )
+    return task
+
+
+async def wait_for_file_storage_startup_sync(app_instance: FastAPI) -> None:
+    """Wait until durable file storage startup sync has completed successfully."""
+    while True:
+        error = getattr(app_instance.state, "file_storage_startup_sync_error", None)
+        if error is not None:
+            raise error
+
+        task = getattr(app_instance.state, "file_storage_startup_sync_task", None)
+        if task is None:
+            return
+
+        if task.done():
+            try:
+                await task
+            except Exception as exc:  # noqa: BLE001
+                app_instance.state.file_storage_startup_sync_error = exc
+                app_instance.state.file_storage_startup_sync_completed = False
+                raise
+
+            error = getattr(app_instance.state, "file_storage_startup_sync_error", None)
+            if error is not None:
+                raise error
+            return
+
+        try:
+            await asyncio.wait_for(
+                asyncio.shield(task),
+                timeout=FILE_STORAGE_STARTUP_SYNC_GATE_POLL_INTERVAL_SECONDS,
+            )
+        except TimeoutError:
+            continue
+        except Exception as exc:  # noqa: BLE001
+            app_instance.state.file_storage_startup_sync_error = exc
+            app_instance.state.file_storage_startup_sync_completed = False
+            raise
+
+
+class FileStorageStartupSyncGateMiddleware:
+    """Gate client traffic until durable file storage startup sync completes."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(
+        self,
+        scope: Scope,
+        receive: Receive,
+        send: Send,
+    ) -> None:
+        scope_type = scope.get("type")
+        if scope_type not in {"http", "websocket"}:
+            await self.app(scope, receive, send)
+            return
+
+        path = str(scope.get("path") or "")
+        if path in FILE_STORAGE_STARTUP_SYNC_EXEMPT_PATHS:
+            await self.app(scope, receive, send)
+            return
+        if scope_type == "http" and str(scope.get("method") or "").upper() == "OPTIONS":
+            await self.app(scope, receive, send)
+            return
+
+        app_instance = scope.get("app")
+        if isinstance(app_instance, FastAPI):
+            try:
+                await wait_for_file_storage_startup_sync(app_instance)
+            except Exception:
+                if scope_type == "websocket":
+                    await send(
+                        {
+                            "type": "websocket.close",
+                            "code": 1013,
+                            "reason": "Startup file storage sync failed",
+                        }
+                    )
+                    return
+
+                response = JSONResponse(
+                    status_code=503,
+                    content={"detail": "Startup file storage sync failed"},
+                )
+                await response(scope, receive, send)
+                return
+
+        await self.app(scope, receive, send)
 
 
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     """Health check endpoint for container probes."""
     return {"status": "ok"}
+
+
+@app.get("/ready")
+async def readiness_check() -> JSONResponse:
+    """Readiness check that reflects startup file storage sync status."""
+    task = getattr(app.state, "file_storage_startup_sync_task", None)
+    error = getattr(app.state, "file_storage_startup_sync_error", None)
+
+    if error is not None:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "detail": "Startup file storage sync failed"},
+        )
+    if task is not None and not task.done():
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "starting",
+                "detail": "Startup file storage sync running",
+            },
+        )
+    return JSONResponse(status_code=200, content={"status": "ready"})
 
 
 # Add global exception handler
@@ -201,6 +486,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SessionMiddleware, secret_key=get_session_secret(), same_site="lax")
+app.add_middleware(FileStorageStartupSyncGateMiddleware)
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -219,7 +506,9 @@ app.include_router(auth_router)
 app.include_router(chat_router)
 app.include_router(cloud_router)
 app.include_router(file_router)
+app.include_router(jobs_router)
 app.include_router(kb_router)
+app.include_router(me_router)
 app.include_router(model_router)
 app.include_router(ws_router)
 app.include_router(monitor_router)
@@ -234,9 +523,11 @@ app.include_router(skills_router)
 app.include_router(system_router)
 app.include_router(templates_router)
 app.include_router(agents_router)
+app.include_router(triggers_router)
+app.include_router(workforces_router)
 app.include_router(channel_router, prefix="/api/channels", tags=["Channels"])
 app.include_router(widget_router)
-app.include_router(wiki_router)
+app.include_router(share_router)
 # Public SDK surface, mounted under /v1. Auth via xag_* API key,
 # error envelope {"error": {"code", "message"}}. See web/api/v1/.
 app.include_router(v1_router)
@@ -246,10 +537,12 @@ app.include_router(v1_router)
 @app.on_event("startup")
 async def startup_event() -> None:
     global _migration_task
-    logger.info("Agent runtime configured: v2")
+    logger.info("Agent runtime configured: %s", get_agent_runtime())
     logger.info("Initializing database...")
     init_db()
     logger.info("Database initialized successfully")
+    start_file_storage_startup_sync_task(app)
+    start_trigger_dispatcher_task(app)
 
     initialize_langfuse()
 
@@ -288,44 +581,6 @@ async def startup_event() -> None:
     logger.info(
         f"Memory store similarity threshold: {store_info['similarity_threshold']}"
     )
-
-    # Initialize Wiki Engine (Karpathy Obsidian-Wiki workflow)
-    try:
-        from pathlib import Path
-
-        from ..core.wiki.config import WikiConfig
-        from ..core.wiki.engine import WikiEngine
-        from .services.llm_utils import create_llm_from_env
-
-        wiki_dir = Path(os.getenv("WIKI_DIR", "/root/.xagent/wiki"))
-        wiki_config = WikiConfig(
-            wiki_dir=wiki_dir,
-            namespace=os.getenv("WIKI_NAMESPACE", "default"),
-        )
-        wiki_config.ensure_dirs()
-
-        # Get a real LLM instance from environment/config
-        _real_llm = create_llm_from_env()
-        if _real_llm is None:
-            raise RuntimeError("No LLM available (set OPENAI_API_KEY or configure models in DB)")
-
-        # Bridge BaseLLM.chat(messages) to Wiki compiler's callable interface
-        async def _wiki_llm(prompt: str, *, system: str = "", temperature: float = 0.3) -> str:
-            messages = []
-            if system:
-                messages.append({"role": "system", "content": system})
-            messages.append({"role": "user", "content": prompt})
-            result = await _real_llm.chat(messages, temperature=temperature)
-            if isinstance(result, dict):
-                return result.get("content", str(result))
-            return str(result)
-
-        app.state.wiki_engine = WikiEngine.from_config(wiki_config, _wiki_llm)
-        logger.info(f"Wiki Engine initialized with real LLM (dir={wiki_dir})")
-    except Exception as e:
-        logger.warning(f"Wiki Engine initialization skipped: {e}")
-        app.state.wiki_engine = None
-
 
     # Auto-migrate LanceDB tables if needed (for multi-tenancy support)
     # Controlled by LANCEDB_AUTO_MIGRATE environment variable (default: true)
@@ -713,9 +968,23 @@ async def startup_event() -> None:
 
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
-    global _migration_task
+    global _file_storage_startup_sync_task, _migration_task, _trigger_dispatcher_task
 
     flush_langfuse()
+
+    if _file_storage_startup_sync_task and not _file_storage_startup_sync_task.done():
+        logger.info("Cancelling background startup file storage sync task...")
+        _file_storage_startup_sync_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await _file_storage_startup_sync_task
+    _file_storage_startup_sync_task = None
+
+    if _trigger_dispatcher_task and not _trigger_dispatcher_task.done():
+        logger.info("Cancelling trigger dispatcher task...")
+        _trigger_dispatcher_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await _trigger_dispatcher_task
+    _trigger_dispatcher_task = None
 
     if _migration_task and not _migration_task.done():
         logger.info("Cancelling background LanceDB migration task...")

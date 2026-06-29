@@ -4,38 +4,34 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { SearchInput } from "@/components/ui/search-input"
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { getApiUrl } from "@/lib/utils"
 import { apiRequest } from "@/lib/api-wrapper"
 import { useAuth } from "@/contexts/auth-context"
 import { useApp } from "@/contexts/app-context-chat"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { getBrandingFromEnv } from "@/lib/branding"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/sonner"
+import extraNav from "@/lib/extra-nav"
 import {
-  Activity,
+  getNavigationGroupsForUser,
+  getUserMenuItemsForUser,
+  type NavigationItem,
+  type NavigationGroup,
+} from "@/lib/sidebar-navigation"
+import {
   FileText,
   LogOut,
   X,
   ChevronDown,
   ChevronRight,
   ChevronLeft,
-  Sparkles,
-  Settings,
-  Wrench,
-  Users,
-  Brain,
-  Server,
-  Layers,
   MessageSquare,
   Loader2,
   Trash2,
   CheckCircle2,
   XCircle,
   PauseCircle,
-  Bot,
-  Box,
-  LayoutTemplate,
   Info,
   Tag,
   Github,
@@ -43,7 +39,6 @@ import {
   MoreHorizontal,
   Edit2,
   Search,
-  Globe,
   ChevronsUpDown,
 } from "lucide-react"
 import {
@@ -54,6 +49,15 @@ import {
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 
 import { useI18n } from "@/contexts/i18n-context"
+
+export {
+  getNavigationGroupsForUser,
+  getUserMenuItemsForUser,
+}
+export type {
+  NavigationGroup,
+  NavigationItem,
+}
 
 interface Task {
   task_id: string
@@ -76,159 +80,12 @@ interface VersionInfo {
   is_latest?: boolean | null
 }
 
+const TASKS_PER_PAGE = 10
+
 function formatStars(stars: number): string {
   if (stars >= 1000000) return `${(stars / 1000000).toFixed(1)}M`
   if (stars >= 1000) return `${(stars / 1000).toFixed(1)}k`
   return String(stars)
-}
-
-export interface NavigationItem {
-  name: string
-  href: string
-  icon: any
-  color?: string
-  children?: NavigationItem[]
-  showTasks?: boolean
-  nameKey?: string
-}
-
-export interface NavigationGroup {
-  title: string
-  titleKey?: string
-  items: NavigationItem[]
-}
-
-const baseMoreResourceItems: NavigationItem[] = [
-  {
-    name: "Tools",
-    nameKey: "nav.tools",
-    href: "/tools",
-    icon: Wrench,
-    color: "text-blue-400"
-  },
-  {
-    name: "Files",
-    nameKey: "nav.files",
-    href: "/files",
-    icon: FileText,
-    color: "text-blue-400"
-  },
-  {
-    name: "Channels",
-    nameKey: "nav.channels",
-    href: "/channels",
-    icon: MessageSquare,
-    color: "text-blue-400"
-  },
-  {
-    name: "Monitoring",
-    nameKey: "nav.monitoring",
-    href: "/monitoring",
-    icon: Activity,
-    color: "text-blue-400"
-  }
-]
-
-const getMoreResourceItemsForUser = (user: any): NavigationItem[] => {
-  const items = [...baseMoreResourceItems]
-
-  if (user?.is_admin) {
-    items.push({
-      name: "User Management",
-      nameKey: "nav.userManagement",
-      href: "/users/",
-      icon: Users,
-      color: "text-blue-400"
-    })
-    items.push({
-      name: "Public MCP Apps",
-      nameKey: "nav.adminMcp",
-      href: "/admin-mcp/",
-      icon: Server,
-      color: "text-blue-400"
-    })
-  }
-
-  return items
-}
-
-export const getNavigationGroupsForUser = (user: any): NavigationGroup[] => [
-  {
-    title: "Agent Development",
-    titleKey: "nav.sections.agentDevelopment",
-    items: [
-      {
-        name: "Task",
-        nameKey: "nav.task",
-        href: "/task",
-        icon: Sparkles,
-        color: "text-blue-500"
-      },
-      {
-        name: "Agents",
-        nameKey: "nav.build",
-        href: "/build",
-        icon: Bot,
-        color: "text-yellow-400"
-      },
-      {
-        name: "Templates",
-        nameKey: "nav.templates",
-        href: "/templates",
-        icon: LayoutTemplate,
-        color: "text-purple-400"
-      },
-    ]
-  },
-  {
-    title: "Resources",
-    titleKey: "nav.sections.resources",
-    items: [
-      {
-        name: "Knowledge Base",
-        nameKey: "nav.knowledgeBase",
-        href: "/kb",
-        icon: Globe,
-        color: "text-gray-500"
-      },
-      {
-        name: "Models",
-        nameKey: "nav.models",
-        href: "/models",
-        icon: Box,
-        color: "text-gray-500"
-      },
-      {
-        name: "Memory",
-        nameKey: "nav.memory",
-        href: "/memory",
-        icon: Brain,
-        color: "text-gray-500"
-      },
-      {
-        name: "More",
-        nameKey: "nav.more",
-        href: "__resources_more__",
-        icon: Layers,
-        color: "text-gray-500",
-        children: getMoreResourceItemsForUser(user)
-      }
-    ]
-  }
-]
-
-const baseUserMenuItems: NavigationItem[] = [
-  {
-    name: "Settings",
-    nameKey: "nav.settings",
-    href: "/settings",
-    icon: Settings,
-    color: "text-blue-400"
-  }
-]
-
-export const getUserMenuItemsForUser = (_user: any): NavigationItem[] => {
-  return [...baseUserMenuItems]
 }
 
 interface SidebarProps {
@@ -248,7 +105,10 @@ export function Sidebar({ className, allowCollapse = true }: SidebarProps) {
   const normalizedGithubUrl = githubUrl.replace(/\.git$/, "").replace(/\/$/, "")
   const githubRepoDisplay = normalizedGithubUrl.replace(/^https?:\/\/github\.com\//i, "")
   const licenseUrl = `${normalizedGithubUrl}/blob/main/LICENSE`
-  const navigationGroups = getNavigationGroupsForUser(user)
+  const navigationGroups = useMemo(() => {
+    const extra = typeof extraNav === "function" ? extraNav(user) : extraNav
+    return [...getNavigationGroupsForUser(user), ...extra]
+  }, [user])
   const [githubStars, setGithubStars] = useState<number | null>(null)
 
   const [taskToDelete, setTaskToDelete] = useState<string | null>(null)
@@ -346,7 +206,7 @@ export function Sidebar({ className, allowCollapse = true }: SidebarProps) {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [isAboutOpen, setIsAboutOpen] = useState(false)
   const sidebarRef = useRef<HTMLDivElement | null>(null)
-  const taskListRef = useRef<HTMLDivElement | null>(null)
+  const contentScrollRef = useRef<HTMLDivElement | null>(null)
   const userMenuRef = useRef<HTMLDivElement | null>(null)
 
   // Handle click outside for user menu
@@ -387,9 +247,8 @@ export function Sidebar({ className, allowCollapse = true }: SidebarProps) {
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const navRef = useRef<HTMLElement | null>(null)
   const pathnameRef = useRef(pathname)
-  pathnameRef.current = pathname // Synchronous update during render
+  const pageRef = useRef(page)
   const displayVersion = versionInfo?.display_version || "unknown"
 
   // Search state
@@ -405,6 +264,14 @@ export function Sidebar({ className, allowCollapse = true }: SidebarProps) {
   // Loading state ref for polling interval
   const loadingRef = useRef({ isLoadingTasks, isLoadingMore })
   loadingRef.current = { isLoadingTasks, isLoadingMore }
+
+  useEffect(() => {
+    pathnameRef.current = pathname
+  }, [pathname])
+
+  useEffect(() => {
+    pageRef.current = page
+  }, [page])
 
   useEffect(() => {
     let isCancelled = false
@@ -501,7 +368,7 @@ export function Sidebar({ className, allowCollapse = true }: SidebarProps) {
 
     try {
       const searchParam = searchRef.current ? `&search=${encodeURIComponent(searchRef.current)}` : ''
-      const response = await apiRequest(`${getApiUrl()}/api/chat/tasks?page=${pageNum}&per_page=10${searchParam}`)
+      const response = await apiRequest(`${getApiUrl()}/api/chat/tasks?page=${pageNum}&per_page=${TASKS_PER_PAGE}${searchParam}`)
       if (response.ok) {
         const data = await response.json()
         // Handle new API response format {tasks: [...], pagination: {...}}
@@ -533,18 +400,19 @@ export function Sidebar({ className, allowCollapse = true }: SidebarProps) {
           })
         }
 
+        const totalPages = data.pagination?.total_pages || 1
+        const loadedPage = isPolling ? Math.min(pageRef.current, totalPages) : pageNum
+
         if (isPolling) {
           setTasks(prev => {
-            const prevIds = new Set(prev.map(t => String(t.task_id)))
-            const completelyNewTasks = newTasks.filter((t: Task) => !prevIds.has(String(t.task_id)))
+            const newTaskIds = new Set(newTasks.map((t: Task) => String(t.task_id)))
+            const remainingTasks = prev
+              .slice(Math.min(TASKS_PER_PAGE, prev.length))
+              .filter(t => !newTaskIds.has(String(t.task_id)))
 
-            const newTasksMap = new Map(newTasks.map((t: Task) => [String(t.task_id), t]))
-            const updatedTasks = prev.map(t => {
-              const updated = newTasksMap.get(String(t.task_id))
-              return updated ? { ...t, ...updated } : t
-            })
-
-            return [...completelyNewTasks, ...updatedTasks]
+            // Polling only refreshes page 1, so replace that slice and trim retained pages
+            // to the current loaded page when the server reports fewer total pages.
+            return [...newTasks, ...remainingTasks].slice(0, loadedPage * TASKS_PER_PAGE)
           })
         } else if (isAppending) {
           setTasks(prev => [...prev, ...newTasks])
@@ -553,9 +421,17 @@ export function Sidebar({ className, allowCollapse = true }: SidebarProps) {
         }
 
         // Update pagination status
-        const totalPages = data.pagination?.total_pages || 1
-        setHasMore(pageNum < totalPages)
-        setPage(pageNum)
+        if (isPolling) {
+          // Polling always refreshes page 1, so keep the user's loaded page state intact.
+          setHasMore(loadedPage < totalPages)
+
+          if (loadedPage !== pageRef.current) {
+            setPage(loadedPage)
+          }
+        } else {
+          setHasMore(pageNum < totalPages)
+          setPage(pageNum)
+        }
       }
     } catch (error) {
       console.error('Failed to load tasks:', error)
@@ -593,10 +469,10 @@ export function Sidebar({ className, allowCollapse = true }: SidebarProps) {
 
   // Monitor task list changes, if content is not enough to fill the container and there is more data, automatically load the next page
   useEffect(() => {
-    if (!taskListRef.current || !isHistoryExpanded) return
+    if (!contentScrollRef.current || !isHistoryExpanded) return
 
-    const { scrollHeight, clientHeight } = taskListRef.current
-    const isVisible = taskListRef.current.getClientRects().length > 0
+    const { scrollHeight, clientHeight } = contentScrollRef.current
+    const isVisible = contentScrollRef.current.getClientRects().length > 0
     if (!isVisible || clientHeight <= 0) return
 
     // If content height is less than or equal to container height (plus a buffer), and there is more data, and not loading
@@ -632,7 +508,9 @@ export function Sidebar({ className, allowCollapse = true }: SidebarProps) {
     return () => clearTimeout(timer)
   }, [searchQuery, loadTasks, isHistoryExpanded])
 
-  const handleScroll = (e: React.UIEvent<HTMLElement>) => {
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (!isHistoryExpanded) return
+
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget
     if (clientHeight <= 0) return
 
@@ -694,7 +572,7 @@ export function Sidebar({ className, allowCollapse = true }: SidebarProps) {
 
   const isItemActive = (item: NavigationItem) => {
     if (item.children?.length) {
-      return item.children.some((child) => isPathActive(child.href))
+      return item.children.some((child: NavigationItem) => isPathActive(child.href))
     }
     return isPathActive(item.href)
   }
@@ -717,7 +595,7 @@ export function Sidebar({ className, allowCollapse = true }: SidebarProps) {
         </button>
         <div className="flex flex-col gap-2 w-full px-2">
           {navigationGroups.map((group) => (
-            group.items.map((item) => {
+            group.items.map((item: NavigationItem) => {
               const isActive = isItemActive(item)
               const hasChildren = item.children && item.children.length > 0
 
@@ -797,11 +675,14 @@ export function Sidebar({ className, allowCollapse = true }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <div className="flex-1 flex flex-col min-h-0 px-3 pb-4">
+      <div
+        ref={contentScrollRef}
+        onScroll={handleScroll}
+        className="flex-1 flex flex-col min-h-0 overflow-y-auto px-3"
+      >
         {/* Sticky Navigation Groups */}
         <nav
-          ref={navRef}
-          className="z-10 bg-transparent -mx-3 px-3 py-2 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']"
+          className="z-10 bg-transparent -mx-3 px-3 py-2"
         >
           {/* Groups */}
           {navigationGroups.map((group, groupIndex) => (
@@ -810,7 +691,7 @@ export function Sidebar({ className, allowCollapse = true }: SidebarProps) {
                 {group.titleKey ? t(group.titleKey) : group.title}
               </div>
               <div className="space-y-1">
-                {group.items.map((item) => {
+                {group.items.map((item: NavigationItem) => {
                   const isActive = isItemActive(item)
                   const hasChildren = item.children && item.children.length > 0
                   const isExpanded = isMenuExpanded(item.href)
@@ -846,7 +727,7 @@ export function Sidebar({ className, allowCollapse = true }: SidebarProps) {
                         </button>
                         {isExpanded && item.children && (
                           <div className="ml-4 mt-1 space-y-1 border-l border-border/40 pl-2">
-                            {item.children.map((child) => {
+                            {item.children.map((child: NavigationItem) => {
                               const isChildActive = pathname === child.href
                               return (
                                 <div key={child.href}>
@@ -891,7 +772,7 @@ export function Sidebar({ className, allowCollapse = true }: SidebarProps) {
         </nav>
 
         {/* History Section */}
-        <div className="mt-auto flex flex-col overflow-hidden shrink-0">
+        <div className="flex flex-col overflow-hidden shrink-0 border-t border-border/40 pt-2 pb-4">
           <div
             className="px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between transition-colors group h-8 shrink-0"
           >
@@ -958,9 +839,7 @@ export function Sidebar({ className, allowCollapse = true }: SidebarProps) {
 
           {isHistoryExpanded && (
             <div
-              ref={taskListRef}
-              className="space-y-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none'] max-h-[304px]"
-              onScroll={handleScroll}
+              className="space-y-1"
             >
               {isLoadingTasks ? (
                 <div className="flex items-center justify-center py-4">
@@ -1086,7 +965,7 @@ export function Sidebar({ className, allowCollapse = true }: SidebarProps) {
         {showUserMenu && (
           <div className="absolute bottom-full left-4 right-4 mb-2 bg-popover border border-border rounded-lg shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200 z-50">
             <div className="py-1">
-              {getUserMenuItemsForUser(user).map((item) => (
+              {getUserMenuItemsForUser(user).map((item: NavigationItem) => (
                 <Link
                   key={item.href}
                   href={item.href}

@@ -2,11 +2,17 @@
 
 import asyncio
 import json
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
-from xagent.core.model.chat.basic.openai import OpenAILLM
+from xagent.core.model.chat.basic.openai import (
+    PROVIDER_STATE_METADATA_KEY,
+    OpenAILLM,
+    _format_openai_error,
+)
+from xagent.core.model.chat.exceptions import LLMRetryableError
 
 
 class TestOpenAILLM:
@@ -101,7 +107,6 @@ class TestOpenAILLM:
         assert isinstance(response, dict)
         assert response.get("type") == "tool_call"
         assert "tool_calls" in response
-
         tool_calls = response["tool_calls"]
         assert len(tool_calls) > 0
         assert tool_calls[0]["function"]["name"] == "get_weather"
@@ -113,6 +118,165 @@ class TestOpenAILLM:
         call_args = mock_client.chat.completions.create.call_args
         assert "tools" in call_args.kwargs
         assert call_args.kwargs["tools"] == tools
+
+    def test_parse_stream_chunk_ignores_empty_idless_tool_call_placeholder(self, llm):
+        """Some OpenAI-compatible providers emit empty id-less tool-call slots."""
+
+        def chunk(tool_calls=None, finish_reason=None):
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        delta=SimpleNamespace(content=None, tool_calls=tool_calls),
+                        finish_reason=finish_reason,
+                    )
+                ]
+            )
+
+        def tool_call(index, call_id, name, arguments, call_type="function"):
+            return SimpleNamespace(
+                index=index,
+                id=call_id,
+                type=call_type,
+                function=SimpleNamespace(name=name, arguments=arguments),
+            )
+
+        accumulated_tool_calls = {}
+
+        llm._parse_stream_chunk(
+            chunk(
+                [
+                    tool_call(
+                        0,
+                        "call_sum",
+                        "mcp_everything_mcp_get_sum",
+                        '{"a":123,"b":456}',
+                    )
+                ]
+            ),
+            accumulated_tool_calls,
+        )
+        llm._parse_stream_chunk(
+            chunk(
+                [
+                    tool_call(
+                        1,
+                        "call_long",
+                        "mcp_everything_mcp_trigger_long_running_operation",
+                        '{"duration":5}',
+                    )
+                ]
+            ),
+            accumulated_tool_calls,
+        )
+        llm._parse_stream_chunk(
+            chunk([tool_call(2, None, "", "", None)]),
+            accumulated_tool_calls,
+        )
+
+        final_chunk = llm._parse_stream_chunk(
+            chunk(finish_reason="tool_calls"),
+            accumulated_tool_calls,
+        )
+
+        assert final_chunk is not None
+        assert final_chunk.tool_calls == [
+            {
+                "index": 0,
+                "id": "call_sum",
+                "type": "function",
+                "function": {
+                    "name": "mcp_everything_mcp_get_sum",
+                    "arguments": '{"a":123,"b":456}',
+                },
+            },
+            {
+                "index": 1,
+                "id": "call_long",
+                "type": "function",
+                "function": {
+                    "name": "mcp_everything_mcp_trigger_long_running_operation",
+                    "arguments": '{"duration":5}',
+                },
+            },
+        ]
+
+    @pytest.mark.asyncio
+    async def test_tool_calling_preserves_empty_reasoning_content(
+        self, openai_llm_config, mocker
+    ):
+        tool_call = MagicMock()
+        tool_call.id = "call_1"
+        tool_call.type = "function"
+        tool_call.function.name = "search"
+        tool_call.function.arguments = '{"query":"xagent"}'
+
+        mock_message = MagicMock()
+        mock_message.content = None
+        mock_message.tool_calls = [tool_call]
+        mock_message.reasoning_content = ""
+
+        mock_choice = MagicMock()
+        mock_choice.message = mock_message
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_response.usage = None
+        mock_response.model_dump.return_value = {"id": "tool-response"}
+
+        mock_client = mocker.AsyncMock()
+        mock_client.chat.completions.create.return_value = mock_response
+        mocker.patch(
+            "xagent.core.model.chat.basic.openai.AsyncOpenAI",
+            return_value=mock_client,
+        )
+
+        llm = OpenAILLM(**openai_llm_config)
+        response = await llm.chat(
+            [{"role": "user", "content": "Search"}],
+            tools=[{}],
+        )
+
+        assert response["type"] == "tool_call"
+        assert response["reasoning_content"] == ""
+        assert response["reasoning"] == ""
+
+    @pytest.mark.asyncio
+    async def test_internal_xagent_message_keys_are_stripped(
+        self, llm, mock_chat_completion, mocker
+    ):
+        mock_client = mocker.AsyncMock()
+        mock_client.chat.completions.create.return_value = mock_chat_completion
+        mocker.patch(
+            "xagent.core.model.chat.basic.openai.AsyncOpenAI",
+            return_value=mock_client,
+        )
+
+        await llm.chat(
+            [
+                {
+                    "role": "assistant",
+                    "content": "",
+                    PROVIDER_STATE_METADATA_KEY: {
+                        "deepseek": {"reasoning_content": ""}
+                    },
+                    "_xagent_private": "internal",
+                    "tool_calls": [
+                        {
+                            "id": "call_1",
+                            "type": "function",
+                            "function": {
+                                "name": "search",
+                                "arguments": '{"query":"xagent"}',
+                            },
+                        }
+                    ],
+                }
+            ]
+        )
+
+        call_messages = mock_client.chat.completions.create.call_args.kwargs["messages"]
+        assert PROVIDER_STATE_METADATA_KEY not in call_messages[0]
+        assert "_xagent_private" not in call_messages[0]
+        assert "reasoning_content" not in call_messages[0]
 
     @pytest.mark.asyncio
     async def test_json_mode(self, llm, mock_json_completion, mocker):
@@ -222,6 +386,70 @@ class TestOpenAILLM:
         assert "OpenAI API error" in error_msg
         print(f"Error handling test passed: {error_msg}")
 
+    def test_format_openrouter_error_preserves_provider_metadata(self):
+        """OpenRouter provider metadata should survive OpenAI-compatible errors."""
+
+        class FakeOpenRouterError(Exception):
+            message = "Provider returned error"
+            status_code = 400
+            body = {
+                "error": {
+                    "metadata": {
+                        "provider_name": "DeepSeek",
+                        "raw": '{"error":{"message":"missing field `name`"}}',
+                        "previous_errors": [
+                            {
+                                "provider_name": "WandB",
+                                "code": 400,
+                                "raw": '{"error":"invalid request params"}',
+                            }
+                        ],
+                    }
+                }
+            }
+
+        error_msg = _format_openai_error(
+            "OpenAI bad request",
+            FakeOpenRouterError("Provider returned error"),
+        )
+
+        assert "OpenAI bad request (400): Provider returned error" in error_msg
+        assert "provider_name=DeepSeek" in error_msg
+        assert "provider_raw=" in error_msg
+        assert "missing field `name`" in error_msg
+        assert "previous_errors=" in error_msg
+        assert "WandB" in error_msg
+
+    @pytest.mark.asyncio
+    async def test_stream_chat_marks_early_transport_disconnect_retryable(
+        self, openai_llm_config, mocker
+    ):
+        """Early stream transport disconnects should be retried by the wrapper."""
+
+        async def failing_stream():
+            raise RuntimeError(
+                "peer closed connection without sending complete message body "
+                "(incomplete chunked read)"
+            )
+            yield
+
+        mock_client = mocker.AsyncMock()
+        mock_client.chat.completions.create.return_value = failing_stream()
+        mocker.patch(
+            "xagent.core.model.chat.basic.openai.AsyncOpenAI",
+            return_value=mock_client,
+        )
+
+        llm = OpenAILLM(**openai_llm_config)
+
+        with pytest.raises(LLMRetryableError, match="stream connection failed"):
+            _ = [
+                chunk
+                async for chunk in llm.stream_chat(
+                    [{"role": "user", "content": "Hello"}]
+                )
+            ]
+
     @pytest.mark.asyncio
     async def test_custom_parameters(self, llm, mock_chat_completion, mocker):
         """Test custom parameters like temperature and max_tokens."""
@@ -252,6 +480,43 @@ class TestOpenAILLM:
         call_args = mock_client.chat.completions.create.call_args
         assert call_args.kwargs["temperature"] == 0.1
         assert call_args.kwargs["max_tokens"] == 50
+
+    @pytest.mark.asyncio
+    async def test_vision_chat_preserves_zero_temperature(
+        self, openai_llm_config, mock_chat_completion, mocker
+    ):
+        """Vision calls should preserve explicit 0.0 instead of using defaults."""
+        mock_client = mocker.AsyncMock()
+        mock_client.chat.completions.create.return_value = mock_chat_completion
+        mocker.patch(
+            "xagent.core.model.chat.basic.openai.AsyncOpenAI",
+            return_value=mock_client,
+        )
+
+        llm = OpenAILLM(**openai_llm_config, abilities=["chat", "vision"])
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Describe this image."},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": "data:image/jpeg;base64,ZmFrZV9pbWFnZV9kYXRh"
+                        },
+                    },
+                ],
+            }
+        ]
+
+        response = await llm.vision_chat(messages, temperature=0.0)
+
+        assert isinstance(response, dict)
+        assert response.get("type") == "text"
+
+        call_args = mock_client.chat.completions.create.call_args
+        assert call_args.kwargs["temperature"] == 0.0
+        assert "max_tokens" not in call_args.kwargs
 
     @pytest.mark.asyncio
     async def test_cleanup(self, openai_llm_config, mock_chat_completion, mocker):
@@ -320,6 +585,9 @@ class TestOpenAILLM:
         mock_message = MagicMock()
         mock_message.content = None
         mock_message.tool_calls = None
+        # No reasoning trace either: this is a genuinely empty response and
+        # the adapter must keep raising so callers can surface the failure.
+        mock_message.reasoning_content = None
         mock_choice.message = mock_message
 
         mock_response = MagicMock()
@@ -349,6 +617,9 @@ class TestOpenAILLM:
         mock_message = MagicMock()
         mock_message.content = ""
         mock_message.tool_calls = None
+        # No reasoning trace either: ensures the empty-response error path
+        # still triggers when a provider returns nothing useful at all.
+        mock_message.reasoning_content = None
         mock_choice.message = mock_message
 
         mock_response = MagicMock()
@@ -364,6 +635,133 @@ class TestOpenAILLM:
         llm = OpenAILLM(**openai_llm_config)
 
         # Should raise RuntimeError when content is empty and no tool calls
+        with pytest.raises(
+            RuntimeError, match="LLM returned empty content and no tool calls"
+        ):
+            await llm.chat([{"role": "user", "content": "Hello"}])
+
+    @pytest.mark.asyncio
+    async def test_empty_content_falls_back_to_reasoning_content(
+        self, openai_llm_config, mocker
+    ):
+        """Reasoning models (e.g. qwen3-thinking, deepseek-r1) served via
+        OpenAI-compatible endpoints can return ``content=""`` while the
+        partial answer lives in ``reasoning_content`` when the generation
+        is truncated by ``max_tokens`` (``finish_reason="length"``).
+
+        The adapter must surface the reasoning text as content instead of
+        treating the response as invalid — otherwise the model connection
+        test endpoint can never validate a reasoning model.
+        """
+        mock_choice = MagicMock()
+        mock_choice.finish_reason = "length"
+        mock_message = MagicMock()
+        mock_message.content = ""
+        mock_message.tool_calls = None
+        mock_message.reasoning_content = "Here"
+        mock_choice.message = mock_message
+
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_response.model_dump.return_value = {
+            "choices": [
+                {
+                    "finish_reason": "length",
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "reasoning_content": "Here",
+                    },
+                }
+            ]
+        }
+
+        mock_client = mocker.AsyncMock()
+        mock_client.chat.completions.create.return_value = mock_response
+        mocker.patch(
+            "xagent.core.model.chat.basic.openai.AsyncOpenAI",
+            return_value=mock_client,
+        )
+
+        llm = OpenAILLM(**openai_llm_config)
+
+        result = await llm.chat([{"role": "user", "content": "Hello"}])
+
+        assert result["type"] == "text"
+        assert result["content"] == "Here"
+        assert result["reasoning_content"] == "Here"
+        assert result["reasoning"] == "Here"
+
+    @pytest.mark.asyncio
+    async def test_whitespace_only_reasoning_content_still_raises(
+        self, openai_llm_config, mocker
+    ):
+        """A whitespace-only reasoning trace must NOT be treated as a
+        usable answer.
+
+        The empty-content guard checks ``content.strip()``; the
+        reasoning fallback must apply the same rule, otherwise a
+        provider returning ``reasoning_content="   "`` would surface a
+        blank string as if it were a valid response.
+        """
+        mock_choice = MagicMock()
+        mock_choice.finish_reason = "length"
+        mock_message = MagicMock()
+        mock_message.content = ""
+        mock_message.tool_calls = None
+        mock_message.reasoning_content = "   \n  "
+        mock_choice.message = mock_message
+
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+
+        mock_client = mocker.AsyncMock()
+        mock_client.chat.completions.create.return_value = mock_response
+        mocker.patch(
+            "xagent.core.model.chat.basic.openai.AsyncOpenAI",
+            return_value=mock_client,
+        )
+
+        llm = OpenAILLM(**openai_llm_config)
+
+        with pytest.raises(
+            RuntimeError, match="LLM returned empty content and no tool calls"
+        ):
+            await llm.chat([{"role": "user", "content": "Hello"}])
+
+    @pytest.mark.asyncio
+    async def test_finish_reason_stop_with_only_reasoning_still_raises(
+        self, openai_llm_config, mocker
+    ):
+        """The reasoning-content fallback is scoped to truncated responses
+        (``finish_reason="length"``) only.
+
+        If a provider returns ``finish_reason="stop"`` with empty content
+        and a populated reasoning trace, the model is claiming to be done
+        without producing a final answer -- that is a real model failure
+        and the adapter must surface it instead of silently promoting the
+        scratchpad to the assistant message.
+        """
+        mock_choice = MagicMock()
+        mock_choice.finish_reason = "stop"
+        mock_message = MagicMock()
+        mock_message.content = ""
+        mock_message.tool_calls = None
+        mock_message.reasoning_content = "I should answer the user."
+        mock_choice.message = mock_message
+
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+
+        mock_client = mocker.AsyncMock()
+        mock_client.chat.completions.create.return_value = mock_response
+        mocker.patch(
+            "xagent.core.model.chat.basic.openai.AsyncOpenAI",
+            return_value=mock_client,
+        )
+
+        llm = OpenAILLM(**openai_llm_config)
+
         with pytest.raises(
             RuntimeError, match="LLM returned empty content and no tool calls"
         ):

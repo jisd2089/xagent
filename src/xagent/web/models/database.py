@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool, QueuePool
 
 from ...config import get_database_url
+from ...db.sqlite import apply_sqlite_concurrency_pragmas
 
 _SessionLocal: sessionmaker[Session] | None = None
 
@@ -44,9 +45,12 @@ def init_db(db_url: str | None = None) -> None:
     """Initialize database, create all tables and default users"""
     # Import all models to ensure they are registered with Base.metadata
     from . import (  # noqa: F401
+        BackgroundJob,
+        KBIngestTarget,
         MCPServer,
         Model,
         OAuthProvider,
+        OidcConsumedToken,
         PublicMCPApp,
         SystemSetting,
         Task,
@@ -56,9 +60,15 @@ def init_db(db_url: str | None = None) -> None:
         ToolUsage,
         UploadedFile,
         User,
+        UserApiKey,
         UserDefaultModel,
+        UserIdentity,
         UserModel,
         UserTemplateRelation,
+        Workforce,
+        WorkforceAgent,
+        WorkforceBuilderMessage,
+        WorkforceRun,
     )
     from .agent import Agent  # noqa: F401
     from .sandbox import SandboxInfo, SandboxSnapshot  # noqa: F401
@@ -81,6 +91,10 @@ def init_db(db_url: str | None = None) -> None:
             connect_args={"check_same_thread": False},
             poolclass=NullPool,  # SQLite doesn't need connection pooling
         )
+        # WAL + busy_timeout so concurrent writes (e.g. concurrent tool
+        # execution) wait for the lock instead of failing with "database is
+        # locked".
+        apply_sqlite_concurrency_pragmas(_engine)
     else:
         _engine = create_engine(
             database_url,
@@ -96,12 +110,20 @@ def init_db(db_url: str | None = None) -> None:
     _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
 
     # Try upgrade db to head first
-    from ...db import try_upgrade_db
+    from ...db.migration import is_database_empty, try_upgrade_db
+
+    should_seed_builtin_mcp_registry = is_database_empty(_engine)
 
     try_upgrade_db(_engine)
 
     # Create all tables
     Base.metadata.create_all(bind=_engine)
+
+    if should_seed_builtin_mcp_registry:
+        from ..builtin_mcp_registry import seed_builtin_oauth_and_public_mcp_apps
+
+        with _engine.begin() as conn:
+            seed_builtin_oauth_and_public_mcp_apps(conn)
 
     logger = logging.getLogger(__name__)
     logger.info("Database initialized. Waiting for first admin setup.")

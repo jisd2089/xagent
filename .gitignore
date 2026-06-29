@@ -67,6 +67,10 @@ db.sqlite3-journal
 xagent_web.db
 xagent.db
 
+# xagent local data directory
+/.xagent_data/
+.xagent_data/
+
 # Test workspace directories
 test_workspace/
 test-task/
@@ -137,7 +141,7 @@ ipython_config.py
 __pypackages__/
 
 # Celery stuff
-celerybeat-schedule
+celerybeat-schedule*
 celerybeat.pid
 
 # SageMath parsed files
@@ -220,9 +224,6 @@ src/xagent/web/uploads/
 # test data
 examples/test_data.*
 examples/*.html
-
-# UV.lock
-uv.lock
 
 # filelock artifacts from tests (mock paths like <MagicMock ...>.lock)
 *MagicMock*.lock

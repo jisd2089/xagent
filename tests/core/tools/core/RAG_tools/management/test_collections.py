@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from src.xagent.core.tools.core.RAG_tools.core.exceptions import DatabaseOperationError
 from src.xagent.core.tools.core.RAG_tools.core.schemas import DocumentProcessingStatus
 from src.xagent.core.tools.core.RAG_tools.LanceDB.model_tag_utils import (
     embeddings_table_name,
@@ -37,7 +38,10 @@ from src.xagent.core.tools.core.RAG_tools.management import (
     list_documents,
     retry_document,
 )
-from src.xagent.core.tools.core.RAG_tools.management.status import load_ingestion_status
+from src.xagent.core.tools.core.RAG_tools.management.status import (
+    load_ingestion_status,
+    write_ingestion_status,
+)
 from src.xagent.core.tools.core.RAG_tools.storage import get_vector_index_store
 from src.xagent.core.tools.core.RAG_tools.storage.contracts import DocumentRecord
 from src.xagent.core.tools.core.RAG_tools.storage.factory import get_metadata_store
@@ -511,7 +515,7 @@ def test_delete_collection_invokes_cleanup_all_documents(
 
     monkeypatch.setattr(
         collections_module,
-        "clear_ingestion_status",
+        "_clear_ingestion_status_impl",
         _fake_clear,
     )
 
@@ -541,7 +545,7 @@ def test_delete_collection_preserves_partial_vector_cleanup(
         collections_module, "get_vector_index_store", lambda: mock_store
     )
     monkeypatch.setattr(
-        collections_module, "clear_ingestion_status", lambda *args, **kwargs: None
+        collections_module, "_clear_ingestion_status_impl", lambda *args, **kwargs: None
     )
     monkeypatch.setattr(
         collections_module,
@@ -556,14 +560,14 @@ def test_delete_collection_preserves_partial_vector_cleanup(
     assert result.warnings == [warnings_from_store]
 
 
-def test_delete_collection_non_admin_uses_document_scoped_deletes(
+def test_delete_collection_non_admin_uses_batched_document_scoped_delete(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Non-admin collection delete should avoid collection-wide legacy cleanup."""
 
     class FakeVectorStore:
         def __init__(self) -> None:
-            self.document_delete_calls: list[tuple[str, str, int | None, bool]] = []
+            self.documents_delete_calls: list[dict[str, object]] = []
 
         def list_document_records(self, **_kwargs: object) -> list[DocumentRecord]:
             return [
@@ -576,6 +580,10 @@ def test_delete_collection_non_admin_uses_document_scoped_deletes(
                 "non-admin delete must not use collection-wide cleanup"
             )
 
+        def delete_documents_data(self, **_kwargs: object) -> dict[str, int]:
+            self.documents_delete_calls.append(dict(_kwargs))
+            return {"chunks": 2}
+
         def delete_document_data(
             self,
             *,
@@ -584,26 +592,65 @@ def test_delete_collection_non_admin_uses_document_scoped_deletes(
             user_id: int | None,
             is_admin: bool,
         ) -> dict[str, int]:
-            self.document_delete_calls.append(
-                (collection_name, doc_id, user_id, is_admin)
-            )
-            return {"chunks": 1}
+            raise AssertionError("collection delete should not fan out per document")
 
     store = FakeVectorStore()
     monkeypatch.setattr(collections_module, "get_vector_index_store", lambda: store)
     monkeypatch.setattr(
         collections_module,
-        "clear_ingestion_status",
+        "_clear_ingestion_status_impl",
         lambda *args, **kwargs: None,
     )
 
     result = delete_collection("shared", user_id=7, is_admin=False)
 
     assert result.status == "success"
-    assert store.document_delete_calls == [
-        ("shared", "doc-1", 7, False),
-        ("shared", "doc-2", 7, False),
-    ]
+    assert len(store.documents_delete_calls) == 1
+    assert store.documents_delete_calls[0]["collection_name"] == "shared"
+    assert store.documents_delete_calls[0]["doc_ids"] == ["doc-1", "doc-2"]
+    assert store.documents_delete_calls[0]["user_id"] == 7
+    assert store.documents_delete_calls[0]["is_admin"] is False
+
+
+def test_delete_collection_reports_partial_batched_delete_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Prior successful batches should be visible when a later batch fails."""
+
+    class FakeVectorStore:
+        def list_document_records(self, **kwargs: object) -> list[DocumentRecord]:
+            if kwargs.get("is_admin") is True:
+                return []
+            return [
+                DocumentRecord(doc_id="doc-1", file_id=None, source_path=None),
+                DocumentRecord(doc_id="doc-2", file_id=None, source_path=None),
+            ]
+
+        def delete_collection_data(self, **_kwargs: object) -> dict[str, int]:
+            raise AssertionError(
+                "non-admin delete must not use collection-wide cleanup"
+            )
+
+        def delete_documents_data(self, **kwargs: object) -> dict[str, int]:
+            kwargs["warnings_out"].append("Failed to delete document batch 2: boom")
+            raise DatabaseOperationError(
+                "Failed to delete document batch",
+                details={
+                    "deleted_counts": {"documents": 1, "chunks": 2},
+                    "deleted_doc_ids": ["doc-1"],
+                },
+            )
+
+    monkeypatch.setattr(
+        collections_module, "get_vector_index_store", lambda: FakeVectorStore()
+    )
+
+    result = delete_collection("shared", user_id=7, is_admin=False)
+
+    assert result.status == "partial_success"
+    assert result.deleted_counts == {"documents": 1, "chunks": 2}
+    assert result.warnings == ["Failed to delete document batch 2: boom"]
+    assert [detail.doc_id for detail in result.affected_documents] == ["doc-1"]
 
 
 def test_delete_collection_reports_success_when_only_orphan_artifacts_deleted(
@@ -852,6 +899,87 @@ async def test_list_collections_non_admin_realtime_does_not_overwrite_global_met
     save_collection_mock.assert_not_awaited()
 
 
+@pytest.mark.asyncio
+async def test_list_collections_non_admin_uses_tenant_stats_despite_metadata_cache(
+    temp_lancedb_dir: str,
+) -> None:
+    """A visible shared-name collection should show only the caller's document count."""
+    collection = "shared_name_cache_test"
+    now = datetime.now(timezone.utc)
+
+    _insert_documents(
+        [
+            {
+                "collection": collection,
+                "doc_id": "doc-user-1",
+                "source_path": "/path/user1.pdf",
+                "file_type": "pdf",
+                "content_hash": "hash-1",
+                "uploaded_at": now,
+                "title": "User 1",
+                "language": "en",
+                "user_id": 1,
+            },
+            {
+                "collection": collection,
+                "doc_id": "doc-user-2",
+                "source_path": "/path/user2.pdf",
+                "file_type": "pdf",
+                "content_hash": "hash-2",
+                "uploaded_at": now,
+                "title": "User 2",
+                "language": "en",
+                "user_id": 2,
+            },
+        ]
+    )
+    await get_metadata_store().save_collection_config(collection, "{}", user_id=1)
+
+    result = await list_collections(user_id=1, is_admin=False)
+
+    info = next(c for c in result.collections if c.name == collection)
+    assert info.documents == 1
+    assert info.owners == [1]
+    assert info.document_names == ["user1.pdf"]
+
+
+@pytest.mark.asyncio
+async def test_list_collections_non_admin_stale_config_does_not_use_global_stats(
+    temp_lancedb_dir: str,
+) -> None:
+    """A stale user config should not inherit another user's cached stats."""
+    collection = "stale_config_shared_name_test"
+    now = datetime.now(timezone.utc)
+
+    _insert_documents(
+        [
+            {
+                "collection": collection,
+                "doc_id": "doc-user-2",
+                "source_path": "/path/user2.pdf",
+                "file_type": "pdf",
+                "content_hash": "hash-2",
+                "uploaded_at": now,
+                "title": "User 2",
+                "language": "en",
+                "user_id": 2,
+            }
+        ]
+    )
+    await get_metadata_store().save_collection_config(collection, "{}", user_id=1)
+
+    result = await list_collections(user_id=1, is_admin=False)
+
+    info = next(c for c in result.collections if c.name == collection)
+    assert info.documents == 0
+    assert info.parses == 0
+    assert info.chunks == 0
+    assert info.embeddings == 0
+    assert info.processed_documents == 0
+    assert info.owners == []
+    assert info.document_names == []
+
+
 # --- delete_collection metadata cleanup Tests ---
 
 
@@ -899,7 +1027,7 @@ def test_delete_document_authorizes_before_cascade() -> None:
             collections_module, "get_vector_index_store", return_value=vector_store
         ),
         patch.object(vector_store, "delete_document_data") as mock_delete_data,
-        patch.object(collections_module, "clear_ingestion_status") as mock_clear,
+        patch.object(collections_module, "_clear_ingestion_status_impl") as mock_clear,
     ):
         result = delete_document("demo", "doc-1", user_id=7, is_admin=False)
 
@@ -940,7 +1068,7 @@ def test_delete_document_allows_legacy_owner_recovered_from_source_path() -> Non
             "delete_document_data",
             return_value={"documents": 1, "main_pointers": 1},
         ) as mock_delete_data,
-        patch.object(collections_module, "clear_ingestion_status") as mock_clear,
+        patch.object(collections_module, "_clear_ingestion_status_impl") as mock_clear,
     ):
         result = delete_document("demo", "doc-legacy", user_id=7, is_admin=False)
 
@@ -988,7 +1116,7 @@ def test_delete_document_rejects_legacy_row_owned_by_another_user() -> None:
             collections_module, "get_vector_index_store", return_value=vector_store
         ),
         patch.object(vector_store, "delete_document_data") as mock_delete_data,
-        patch.object(collections_module, "clear_ingestion_status") as mock_clear,
+        patch.object(collections_module, "_clear_ingestion_status_impl") as mock_clear,
     ):
         result = delete_document("demo", "doc-foreign", user_id=7, is_admin=False)
 
@@ -1011,7 +1139,7 @@ def test_delete_document_clears_status_with_caller_scope() -> None:
             "delete_document_data",
             return_value={"documents": 1, "main_pointers": 1},
         ) as mock_delete_data,
-        patch.object(collections_module, "clear_ingestion_status") as mock_clear,
+        patch.object(collections_module, "_clear_ingestion_status_impl") as mock_clear,
     ):
         result = delete_document("demo", "doc-1", user_id=9, is_admin=True)
 
@@ -1028,6 +1156,80 @@ def test_delete_document_clears_status_with_caller_scope() -> None:
         "doc-1",
         user_id=9,
         is_admin=True,
+    )
+
+
+def test_delete_document_cleans_failed_ingest_status_by_doc_id(
+    temp_lancedb_dir: str,
+) -> None:
+    """Failed ingest rollback cleanup should remove document data, vectors, and status."""
+
+    collection = "failed_ingest_cleanup"
+    doc_id = "failed-doc"
+    model_name = "text-embedding-v3"
+    now = datetime.now(timezone.utc)
+
+    _insert_documents(
+        [
+            {
+                "collection": collection,
+                "doc_id": doc_id,
+                "source_path": "/uploads/user_7/failed-doc.pdf",
+                "file_type": "pdf",
+                "content_hash": "failed-hash",
+                "uploaded_at": now,
+                "title": "Failed",
+                "language": "zh",
+                "user_id": 7,
+            }
+        ]
+    )
+    _insert_embeddings(
+        model_name,
+        [
+            {
+                "collection": collection,
+                "doc_id": doc_id,
+                "chunk_id": "chunk-1",
+                "parse_hash": "parse-failed",
+                "model": model_name,
+                "vector": [0.1, 0.2, 0.3],
+                "vector_dimension": 3,
+                "text": "partial vector written before ingest failed",
+                "chunk_hash": "failed-chunk-hash",
+                "created_at": now,
+                "metadata": "{}",
+                "user_id": 7,
+            }
+        ],
+    )
+    write_ingestion_status(
+        collection,
+        doc_id,
+        status=DocumentProcessingStatus.FAILED.value,
+        message="Failed during ingest",
+        user_id=7,
+    )
+
+    conn = get_vector_index_store().get_raw_connection()
+    embedding_table = conn.open_table(embeddings_table_name(model_name))
+    assert embedding_table.count_rows() == 1
+
+    result = delete_document(collection, doc_id, user_id=7, is_admin=False)
+
+    assert result.status == "success"
+    assert result.details.get("documents") == 1
+    assert result.details.get(embeddings_table_name(model_name)) == 1
+    embedding_table = conn.open_table(embeddings_table_name(model_name))
+    assert embedding_table.count_rows() == 0
+    assert (
+        load_ingestion_status(
+            collection=collection,
+            doc_id=doc_id,
+            user_id=7,
+            is_admin=False,
+        )
+        == []
     )
 
 

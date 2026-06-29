@@ -19,7 +19,13 @@ from pydantic import BaseModel
 from ...file_ref import build_workspace_file_ref, safe_asset_filename
 from ...workspace import TaskWorkspace
 from .document_parser import DocumentCapabilities, DocumentParseArgs, parse_document
-from .file_tool import EditOperation, EditResult, get_image_metadata
+from .file_tool import (
+    EditOperation,
+    EditResult,
+    _read_line_range,
+    _slice_lines,
+    get_image_metadata,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -190,7 +196,13 @@ class WorkspaceFileOperations:
     def __init__(self, workspace: TaskWorkspace):
         self.workspace = workspace
 
-    def read_file(self, file_path: str, encoding: str = "utf-8") -> str:
+    def read_file(
+        self,
+        file_path: str,
+        encoding: str = "utf-8",
+        start_line: int | None = None,
+        end_line: int | None = None,
+    ) -> str:
         """Read file content in workspace"""
         logger.debug(
             "read_file called with file_path: %s, workspace_id: %s",
@@ -246,12 +258,25 @@ class WorkspaceFileOperations:
                 len(content),
                 resolved_path,
             )
+            if start_line is not None or end_line is not None:
+                return _slice_lines(
+                    content,
+                    start_line=start_line,
+                    end_line=end_line,
+                )
             return content
 
         # Try to read as regular text file
         try:
             with open(resolved_path, "r", encoding=encoding) as f:
-                content = f.read()
+                if start_line is not None or end_line is not None:
+                    content = _read_line_range(
+                        f,
+                        start_line=start_line,
+                        end_line=end_line,
+                    )
+                else:
+                    content = f.read()
                 logger.debug(
                     "Successfully read %d bytes from %s", len(content), resolved_path
                 )
@@ -261,7 +286,14 @@ class WorkspaceFileOperations:
             for fallback_encoding in ["utf-8-sig", "latin-1", "cp1252"]:
                 try:
                     with open(resolved_path, "r", encoding=fallback_encoding) as f:
-                        content = f.read()
+                        if start_line is not None or end_line is not None:
+                            content = _read_line_range(
+                                f,
+                                start_line=start_line,
+                                end_line=end_line,
+                            )
+                        else:
+                            content = f.read()
                         logger.debug(
                             "Successfully read %d bytes from %s using %s encoding",
                             len(content),
@@ -314,6 +346,17 @@ class WorkspaceFileOperations:
             "Successfully wrote file: %s with file_id: %s",
             resolved_path,
             file_ref["file_id"],
+        )
+        return {
+            "success": True,
+            **file_ref,
+            "file_ref": file_ref,
+        }
+
+    def _registered_write_result(self, file_path: Path) -> Dict[str, Any]:
+        file_ref = build_workspace_file_ref(
+            workspace=self.workspace,
+            file_path=file_path,
         )
         return {
             "success": True,
@@ -547,12 +590,17 @@ class WorkspaceFileOperations:
         data: Dict[str, Any],
         encoding: str = "utf-8",
         indent: int = 2,
-    ) -> bool:
+    ) -> Dict[str, Any]:
         """Write JSON file in workspace"""
         from .file_tool import write_json_file as basic_write_json_file
 
         resolved_path = self._resolve_path(file_path, "output")
-        return basic_write_json_file(str(resolved_path), data, encoding, indent)
+        resolved_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with self.workspace.auto_register_files():
+            basic_write_json_file(str(resolved_path), data, encoding, indent)
+
+        return self._registered_write_result(resolved_path)
 
     def read_csv_file(
         self,
@@ -584,12 +632,20 @@ class WorkspaceFileOperations:
         data: List[Dict[str, str]],
         encoding: str = "utf-8",
         delimiter: str = ",",
-    ) -> bool:
+    ) -> Dict[str, Any]:
         """Write CSV file in workspace"""
         from .file_tool import write_csv_file as basic_write_csv_file
 
         resolved_path = self._resolve_path(file_path, "output")
-        return basic_write_csv_file(str(resolved_path), data, encoding, delimiter)
+        resolved_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with self.workspace.auto_register_files():
+            if data:
+                basic_write_csv_file(str(resolved_path), data, encoding, delimiter)
+            else:
+                resolved_path.write_text("", encoding=encoding)
+
+        return self._registered_write_result(resolved_path)
 
     def get_workspace_output_files(self) -> Dict[str, Any]:
         """Get output file list from current workspace"""
@@ -774,7 +830,11 @@ def _get_workspace_ops(workspace_id: str) -> WorkspaceFileOperations:
 
 
 def workspace_read_file(
-    workspace_id: str, file_path: str, encoding: str = "utf-8"
+    workspace_id: str,
+    file_path: str,
+    encoding: str = "utf-8",
+    start_line: int | None = None,
+    end_line: int | None = None,
 ) -> str:
     """
     Reads the content of a file within the specified workspace.
@@ -783,12 +843,14 @@ def workspace_read_file(
         workspace_id: The ID of the workspace.
         file_path: The path to the file relative to the workspace.
         encoding: The encoding to use for reading the file (default: 'utf-8').
+        start_line: Optional 1-based first line to read.
+        end_line: Optional 1-based last line to read, inclusive.
 
     Returns:
         The content of the file as a string.
     """
     ops = _get_workspace_ops(workspace_id)
-    return ops.read_file(file_path, encoding)
+    return ops.read_file(file_path, encoding, start_line, end_line)
 
 
 def workspace_write_file(
@@ -940,10 +1002,8 @@ def workspace_write_json_file(
         True if the write operation was successful.
     """
     ops = _get_workspace_ops(workspace_id)
-    # Note: The original ops.write_json_file signature uses 'indent', not 'create_dirs' as the 4th arg.
-    # We rely on ops.write_file's default behavior for create_dirs or adjust the call if necessary.
-    # Assuming the internal implementation handles directory creation via write_file.
-    return ops.write_json_file(file_path, data, encoding, indent)
+    result = ops.write_json_file(file_path, data, encoding, indent)
+    return bool(result.get("success", False))
 
 
 def workspace_read_csv_file(
@@ -986,9 +1046,8 @@ def workspace_write_csv_file(
         True if the write operation was successful.
     """
     ops = _get_workspace_ops(workspace_id)
-    # The original ops.write_csv_file signature uses List[Dict[str, str]], not List[List[Any]].
-    # Also, the original signature takes 'delimiter' instead of 'create_dirs' as the last positional arg.
-    return ops.write_csv_file(file_path, data, encoding, delimiter)
+    result = ops.write_csv_file(file_path, data, encoding, delimiter)
+    return bool(result.get("success", False))
 
 
 def workspace_edit_file(

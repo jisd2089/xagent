@@ -224,11 +224,13 @@ class DocumentRecord:
         doc_id: Document identifier.
         file_id: Optional file identifier for uploaded file tracking.
         source_path: Original source path if available.
+        user_id: Optional tenant owner for owner-aware control-plane cleanup.
     """
 
     doc_id: str
     file_id: Optional[str] = None
     source_path: Optional[str] = None
+    user_id: Optional[int] = None
 
 
 class FilterOperator(str, Enum):
@@ -334,16 +336,26 @@ class MetadataStore(ABC):
         """Delete persisted metadata/config rows for a collection."""
 
     @abstractmethod
-    async def rename_collection(self, old_name: str, new_name: str) -> None:
+    async def rename_collection(
+        self,
+        old_name: str,
+        new_name: str,
+        user_id: Optional[int],
+        is_admin: bool = False,
+    ) -> None:
         """Rename persisted control-plane keys after a data-plane collection rename.
 
         Updates rows that gate :meth:`list_collections` visibility (for example
         per-tenant config rows and aggregate metadata) so they stay aligned with
-        vector tables when the ``collection`` / ``name`` fields change.
+        vector tables when the ``collection`` / ``name`` fields change. Non-admin
+        callers only rename their tenant config; admin callers rename global
+        metadata/cache rows as well.
 
         Args:
             old_name: Previous collection name (sanitized by the caller).
             new_name: Target collection name (sanitized by the caller).
+            user_id: User ID for tenant-scoped rename.
+            is_admin: Whether the caller can rename across tenants.
         """
 
     @abstractmethod
@@ -383,6 +395,10 @@ class MetadataStore(ABC):
         Returns:
             Config JSON string if found, None otherwise.
         """
+
+    @abstractmethod
+    def list_collection_config_owner_ids(self, collection_name: str) -> set[int]:
+        """List user IDs that have collection_config rows for a collection."""
 
     @abstractmethod
     def get_raw_connection(self) -> Any:
@@ -445,8 +461,14 @@ class VectorIndexStore(ABC):
         self,
         collection_name: str,
         new_name: str,
+        user_id: Optional[int],
+        is_admin: bool,
     ) -> List[str]:
         """Rename collection key across vector-side tables.
+
+        Applies the same multi-tenancy filter semantics as other vector store
+        writes: non-admin callers rename only rows for ``user_id``; admin callers
+        rename all matching rows.
 
         Returns:
             Warning messages generated during best-effort updates.
@@ -490,6 +512,122 @@ class VectorIndexStore(ABC):
 
         Returns:
             Dictionary mapping table names to deleted row counts.
+        """
+
+    @abstractmethod
+    def delete_documents_data(
+        self,
+        collection_name: str,
+        doc_ids: Sequence[str],
+        user_id: Optional[int],
+        is_admin: bool,
+        warnings_out: Optional[List[str]] = None,
+    ) -> Dict[str, int]:
+        """Delete vector-side data for multiple documents in one storage call.
+
+        Implementations should batch internally and preserve document-scoped
+        tenant safety: predicates must include collection and doc_id constraints,
+        and add user_id filtering where the backend table supports it.
+
+        Args:
+            collection_name: Name of the collection.
+            doc_ids: Document identifiers to delete.
+            user_id: User ID for tenant-scoped deletion.
+            is_admin: Whether the caller can delete across tenants.
+            warnings_out: Optional list to append best-effort deletion warnings to.
+
+        Returns:
+            Dictionary mapping table names to deleted row counts.
+        """
+
+    @abstractmethod
+    def delete_document_record(
+        self,
+        collection_name: str,
+        doc_id: str,
+        user_id: Optional[int],
+        is_admin: bool,
+    ) -> int:
+        """Delete only the ``documents`` table row(s) for a single document.
+
+        Row-only counterpart to :meth:`delete_document_data`: it must NOT
+        cascade into parse/chunk/embedding/version data. Implementations must
+        preserve document-scoped tenant safety (collection + doc_id, plus
+        user_id where the table supports it) and must be idempotent, returning
+        0 when the row or table is absent.
+
+        Returns:
+            Number of document rows deleted (0 if none matched).
+        """
+
+    @abstractmethod
+    def delete_parse_records(
+        self,
+        collection_name: str,
+        doc_id: str,
+        parse_hash: Optional[str],
+        user_id: Optional[int],
+        is_admin: bool,
+    ) -> int:
+        """Delete only ``parses`` table row(s) for a document.
+
+        Row-only cleanup primitive (no cascade into chunks/embeddings). When
+        ``parse_hash`` is provided only that parse version is removed; when
+        ``None`` all parse rows for the document are removed. Implementations
+        must preserve document-scoped tenant safety (collection + doc_id, plus
+        user_id where the table supports it) and must be idempotent, returning
+        0 when nothing matched or the table is absent.
+
+        Returns:
+            Number of parse rows deleted (0 if none matched).
+        """
+
+    @abstractmethod
+    def delete_chunk_records(
+        self,
+        collection_name: str,
+        doc_id: str,
+        parse_hash: Optional[str],
+        config_hash: Optional[str],
+        user_id: Optional[int],
+        is_admin: bool,
+    ) -> int:
+        """Delete only ``chunks`` table row(s) for a document.
+
+        Row-only cleanup primitive (no cascade into embeddings). ``parse_hash``
+        and ``config_hash`` optionally narrow the deletion; ``None`` for both
+        removes all chunk rows for the document. Implementations must preserve
+        document-scoped tenant safety and be idempotent, returning 0 when
+        nothing matched or the table is absent.
+
+        Returns:
+            Number of chunk rows deleted (0 if none matched).
+        """
+
+    @abstractmethod
+    def delete_embedding_records(
+        self,
+        collection_name: str,
+        doc_id: str,
+        *,
+        parse_hash: Optional[str] = None,
+        chunk_ids: Optional[Sequence[str]] = None,
+        model_tag: Optional[str] = None,
+        user_id: Optional[int] = None,
+        is_admin: bool = False,
+    ) -> int:
+        """Delete only ``embeddings_{model_tag}`` row(s) for a document.
+
+        Row-only cleanup primitive (no cascade into documents/parses/chunks).
+        Embeddings live in per-model tables, so implementations enumerate the
+        matching embeddings tables: ``model_tag`` narrows to a single model's
+        table; ``None`` spans every embeddings table. ``parse_hash`` and
+        ``chunk_ids`` optionally narrow the deletion. Implementations must
+        preserve document-scoped tenant safety and be idempotent, returning 0
+        when nothing matched or no embeddings table exists.
+
+        Returns:
+            Total embedding rows deleted across matching tables (0 if none).
         """
 
     @abstractmethod
@@ -1271,6 +1409,20 @@ class IngestionStatusStore(ABC):
             DatabaseOperationError: If delete operation fails.
         """
 
+    @abstractmethod
+    def rename_collection_status(
+        self,
+        old_name: str,
+        new_name: str,
+        user_id: Optional[int],
+        is_admin: bool = False,
+    ) -> List[str]:
+        """Rename ingestion status rows for a collection.
+
+        Applies tenant filtering for non-admin callers and global filtering for
+        admin callers. Returns warnings for best-effort update failures.
+        """
+
     # --- Async methods ---
 
     @abstractmethod
@@ -1340,6 +1492,16 @@ class IngestionStatusStore(ABC):
         Raises:
             DatabaseOperationError: If delete operation fails.
         """
+
+    @abstractmethod
+    async def rename_collection_status_async(
+        self,
+        old_name: str,
+        new_name: str,
+        user_id: Optional[int],
+        is_admin: bool = False,
+    ) -> List[str]:
+        """Async version of :meth:`rename_collection_status`."""
 
 
 class PromptTemplateStore(ABC):

@@ -124,8 +124,9 @@ class WebToolConfig(BaseToolConfig):
         self,
         db: Any,
         request: Any,
+        db_factory: Optional[Any] = None,
         user_id: Optional[int] = None,
-        is_admin: bool = False,
+        is_admin: Optional[bool] = None,
         user: Optional[Any] = None,
         workspace_config: Optional[Dict[str, Any]] = None,
         vision_model: Optional[Any] = None,
@@ -136,15 +137,41 @@ class WebToolConfig(BaseToolConfig):
         browser_tools_enabled: bool = True,
         allowed_collections: Optional[List[str]] = None,
         allowed_skills: Optional[List[str]] = None,
-        allowed_tools: Optional[List[str]] = None,
+        allowed_agent_ids: Optional[List[int]] = None,
+        agent_tool_overrides: Optional[Dict[int, Dict[str, Any]]] = None,
+        enable_global_agent_tools: bool = True,
+        allow_cross_user_agent_ids: bool = False,
+        parent_task_id: Optional[str] = None,
+        parent_tracer: Optional[Any] = None,
+        agent_call_stack: Optional[List[int]] = None,
         sandbox: Optional[Any] = None,
+        tool_selection_spec: Optional[Any] = None,
     ):
-        self.db = db
+        # ``tool_selection_spec`` accepts :class:`ToolSelectionSpec` from
+        # the tools adapter package; typed as ``Any`` here to avoid an
+        # import cycle (web.tools → core.tools.adapters). The factory
+        # reads ``config.get_tool_selection_spec()``. ``None`` defaults
+        # to the ``_SpecAll`` ALL-mode (build every default tool).
+        self._tool_selection_spec = tool_selection_spec
+        self._live_db = db
+        self._db_factory = db_factory
+        self._lazy_db = None
         self.request = request
         self._user_id = (
             user_id if user_id is not None else self._get_user_id_from_request(request)
         )
-        self._is_admin_value = is_admin or self._get_is_admin_from_request(request)
+        # Tri-state: an explicit ``is_admin`` (including ``False``) is
+        # authoritative and is NOT OR-ed with the request's admin flag. This
+        # is the privilege-isolation boundary: when the runtime builds a tool
+        # config for a task owner (passing ``is_admin=bool(owner.is_admin)``),
+        # an admin *actor* on the request must not silently widen the config
+        # to admin scope. Only when ``is_admin`` is unset do we fall back to
+        # the request.
+        self._is_admin_value = (
+            bool(is_admin)
+            if is_admin is not None
+            else self._get_is_admin_from_request(request)
+        )
         # Initialize workspace_config with base_dir and task_id if provided
         if workspace_config is None:
             workspace_config = {}
@@ -166,7 +193,15 @@ class WebToolConfig(BaseToolConfig):
         self._browser_tools_enabled = browser_tools_enabled
         self._allowed_collections = allowed_collections
         self._allowed_skills = allowed_skills
-        self._allowed_tools = allowed_tools
+        self._allowed_agent_ids = allowed_agent_ids
+        self._agent_tool_overrides = (
+            agent_tool_overrides if isinstance(agent_tool_overrides, dict) else {}
+        )
+        self._enable_global_agent_tools = bool(enable_global_agent_tools)
+        self._allow_cross_user_agent_ids = bool(allow_cross_user_agent_ids)
+        self._parent_task_id = parent_task_id
+        self._parent_tracer = parent_tracer
+        self._agent_call_stack = list(agent_call_stack or [])
         self._excluded_agent_id: Optional[int] = None
 
         # Cache user object for hook queries.
@@ -188,6 +223,7 @@ class WebToolConfig(BaseToolConfig):
         self._cached_tts_model: Optional[Any] = None
         self._cached_mcp_configs: Optional[List[Dict[str, Any]]] = None
         self._cached_embedding_model: Optional[str] = None
+        self._cached_rerank_model: Optional[str] = None
 
     def _build_mcp_file_allowed_dirs(self) -> str:
         """Build comma-separated file roots that local MCP tools may read."""
@@ -241,18 +277,13 @@ class WebToolConfig(BaseToolConfig):
             return 1
 
     def _get_is_admin_from_request(self, request: Any) -> bool:
-        """Extract is_admin flag from request."""
-        try:
-            # If request has a user attribute directly, check is_admin
-            if hasattr(request, "user") and request.user:
-                return bool(request.user.is_admin)
+        """Extract is_admin flag from the request user, defaulting to False.
 
-            return False
-
-        except Exception as e:
-            logger = logging.getLogger(__name__)
-            logger.warning(f"Failed to get is_admin from request: {e}")
-            return False
+        Uses ``getattr`` so a minimal request object (e.g. one carrying only a
+        user id) doesn't trip the broad ``except`` and log a spurious warning.
+        """
+        user = getattr(request, "user", None)
+        return bool(getattr(user, "is_admin", False)) if user is not None else False
 
     def get_workspace_config(self) -> Optional[Dict[str, Any]]:
         """Get workspace configuration."""
@@ -308,6 +339,12 @@ class WebToolConfig(BaseToolConfig):
             self._cached_embedding_model = self._load_embedding_model()
         return self._cached_embedding_model
 
+    def get_rerank_model(self) -> Optional[str]:
+        """Load default rerank model ID from database."""
+        if self._cached_rerank_model is None:
+            self._cached_rerank_model = self._load_rerank_model()
+        return self._cached_rerank_model
+
     def get_browser_tools_enabled(self) -> bool:
         """Whether to include browser automation tools."""
         return self._browser_tools_enabled
@@ -324,9 +361,44 @@ class WebToolConfig(BaseToolConfig):
         """Get allowed skill names. None means all skills are allowed."""
         return self._allowed_skills
 
-    def get_allowed_tools(self) -> Optional[List[str]]:
-        """Get allowed tool names. None means all tools are allowed."""
-        return self._allowed_tools
+    def get_tool_selection_spec(self) -> Optional[Any]:
+        """Typed spec accessor (preferred over :meth:`get_allowed_tools`).
+
+        Returns a :class:`ToolSelectionSpec` instance when the caller
+        supplied one via ``tool_selection_spec=ToolSelectionSpec.from_raw(...)``.
+        ``ToolFactory.create_all_tools`` reads this first; falls back to
+        ``get_allowed_tools()`` only if this returns ``None`` (legacy
+        backward-compat).
+        """
+        return self._tool_selection_spec
+
+    def get_allowed_agent_ids(self) -> Optional[List[int]]:
+        """Get explicitly allowed published agent IDs. None means use defaults."""
+        return self._allowed_agent_ids
+
+    def get_agent_tool_overrides(self) -> Dict[int, Dict[str, Any]]:
+        """Get per-agent tool metadata/runtime overrides for delegation."""
+        return self._agent_tool_overrides
+
+    def get_enable_global_agent_tools(self) -> bool:
+        """Whether to include globally visible published agents as tools."""
+        return self._enable_global_agent_tools
+
+    def get_allow_cross_user_agent_ids(self) -> bool:
+        """Whether explicit allowed agent IDs may cross the current user boundary."""
+        return self._allow_cross_user_agent_ids
+
+    def get_parent_task_id(self) -> Optional[str]:
+        """Get parent task ID for delegated tool execution."""
+        return self._parent_task_id
+
+    def get_parent_tracer(self) -> Optional[Any]:
+        """Get parent tracer for delegated tool execution."""
+        return self._parent_tracer
+
+    def get_agent_call_stack(self) -> List[int]:
+        """Get active agent delegation call stack for recursion prevention."""
+        return self._agent_call_stack
 
     def get_user_tool_overrides(self) -> dict:
         """Return per-user tool overrides from the registered hook.
@@ -346,6 +418,12 @@ class WebToolConfig(BaseToolConfig):
             self._cached_tool_overrides = {}
         return self._cached_tool_overrides
 
+    def refresh_user_tool_overrides(self) -> dict:
+        """Reload per-user tool overrides from the registered hook."""
+        # The policy can change while an AgentService instance is reused.
+        self._cached_tool_overrides = None
+        return self.get_user_tool_overrides()
+
     def get_excluded_agent_id(self) -> Optional[int]:
         """Get agent ID to exclude from agent tools (to prevent self-calls)."""
         return getattr(self, "_excluded_agent_id", None)
@@ -354,9 +432,44 @@ class WebToolConfig(BaseToolConfig):
         """Get current user ID for multi-tenancy."""
         return self._user_id
 
+    def get_session_factory(self) -> Any:
+        """Return the sessionmaker used to mint per-call tool sessions."""
+        if self._db_factory is not None:
+            return self._db_factory
+        from ..models.database import get_session_local
+
+        return get_session_local()
+
+    @property
+    def db(self) -> Any:
+        """Construction-time DB session.
+
+        Request path: the caller-owned live session, returned verbatim.
+        Factory path (nested child config): a lazily-opened, cached session
+        minted from the factory and closed by ``close()``.
+
+        Exposing this as a property keeps every DB-backed config loader that
+        reads ``self.db.query(...)`` working whether the config was built with
+        a live session or with only a factory — without each loader having to
+        route through ``get_db()`` explicitly.
+        """
+        if self._live_db is not None:
+            return self._live_db
+        if self._db_factory is not None:
+            if self._lazy_db is None:
+                self._lazy_db = self._db_factory()
+            return self._lazy_db
+        return None
+
     def get_db(self) -> Any:
-        """Get database session."""
+        """Get database session (see the :attr:`db` property)."""
         return self.db
+
+    def close(self) -> None:
+        """Close the lazily-opened factory session, if any."""
+        if self._lazy_db is not None:
+            self._lazy_db.close()
+            self._lazy_db = None
 
     def is_admin(self) -> bool:
         """Whether current user is admin."""
@@ -385,6 +498,12 @@ class WebToolConfig(BaseToolConfig):
         from ...web.services.model_service import get_default_embedding_model
 
         return get_default_embedding_model(self._user_id)
+
+    def _load_rerank_model(self) -> Optional[str]:
+        """Load rerank model ID from database via model service."""
+        from ...web.services.model_service import get_default_rerank_model
+
+        return get_default_rerank_model(self._user_id)
 
     def _load_vision_model(self) -> Optional[Any]:
         """Load vision model from database via model service."""
@@ -533,14 +652,14 @@ class WebToolConfig(BaseToolConfig):
 
             for server in servers:
                 # Build config dict from server model
-                config = {
+                config: Dict[str, Any] = {
                     "name": server.name,
                     "transport": server.transport,
                     "description": server.description,
                 }
 
                 # Add transport-specific configuration
-                transport_config = {}
+                transport_config: Dict[str, Any] = {}
 
                 # Handle OAuth credentials
                 if server.transport == "oauth":
@@ -644,16 +763,16 @@ class WebToolConfig(BaseToolConfig):
                                     env["XAGENT_LINKEDIN_IMAGE_ALLOWED_DIRS"] = (
                                         allowed_file_dirs
                                     )
-                                transport_config["env"] = env  # type: ignore
+                                transport_config["env"] = env
                             else:
                                 config["transport"] = "stdio"
                                 transport_config["transport"] = "stdio"
                                 transport_config["command"] = "npx"
-                                transport_config["args"] = [  # type: ignore
+                                transport_config["args"] = [
                                     "-y",
                                     f"@mcp-servers/{str(server.name).lower().replace(' ', '-')}",
                                 ]
-                                transport_config["env"] = {  # type: ignore
+                                transport_config["env"] = {
                                     f"{str(server.name).upper().replace(' ', '_')}_ACCESS_TOKEN": oauth_account.access_token,
                                     "HTTPS_PROXY": os.environ.get("HTTPS_PROXY", ""),
                                     "HTTP_PROXY": os.environ.get("HTTP_PROXY", ""),
@@ -691,6 +810,13 @@ class WebToolConfig(BaseToolConfig):
                     )
                     if merged_headers:
                         transport_config["headers"] = merged_headers
+
+                transport_config["concurrency_safe"] = bool(
+                    getattr(server, "concurrency_safe", False)
+                )
+                transport_config["concurrent_tools"] = list(
+                    getattr(server, "concurrent_tools", None) or []
+                )
 
                 # Add Docker-specific config if managed internally
                 if server.managed == "internal":

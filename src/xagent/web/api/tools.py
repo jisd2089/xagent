@@ -44,6 +44,7 @@ CATEGORY_DISPLAY_NAMES = {
     "audio": "Audio",
     "knowledge": "Knowledge",
     "file": "File",
+    "web_search": "Web Search",
     "basic": "Basic",
     "browser": "Browser",
     "ppt": "PPT",
@@ -216,7 +217,7 @@ async def get_available_tools(
     if sandbox_manager:
         user_id = int(current_user.id)
         try:
-            sandbox = await sandbox_manager.get_or_create_sandbox("user", str(user_id))
+            sandbox = await sandbox_manager.get_or_create_sandbox("tools", str(user_id))
         except Exception as e:
             logger.error(f"Failed to create sandbox for user {user_id}: {e}")
 

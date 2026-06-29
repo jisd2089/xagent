@@ -831,6 +831,54 @@ def get_default_embedding_model(user_id: Optional[int] = None) -> Optional[str]:
     return None
 
 
+def get_default_rerank_model(user_id: Optional[int] = None) -> Optional[str]:
+    """Get the default rerank model ID for a specific user.
+
+    Mirrors :func:`get_default_embedding_model` for rerank models. Looks up
+    the user's configured default rerank model from ``UserDefaultModel``
+    and returns the underlying ``Model.model_id`` (string).
+    """
+    from ..models.database import get_db
+    from ..models.model import Model as DBModel
+    from ..models.user import UserDefaultModel, UserModel
+
+    db = next(get_db())
+    try:
+        if user_id:
+            rerank_default = (
+                db.query(UserDefaultModel)
+                .join(DBModel, UserDefaultModel.model_id == DBModel.id)
+                .filter(
+                    UserDefaultModel.user_id == user_id,
+                    UserDefaultModel.config_type == "rerank",
+                    DBModel.is_active,
+                )
+                .first()
+            )
+            if rerank_default and rerank_default.model:
+                if _is_model_visible_to_user(db, rerank_default.model.id, user_id):
+                    return str(rerank_default.model.model_id)
+
+        admin_rerank_defaults = (
+            db.query(UserDefaultModel)
+            .join(UserModel, UserDefaultModel.model_id == UserModel.model_id)
+            .filter(
+                UserDefaultModel.config_type == "rerank",
+                UserModel.is_shared.is_(True),
+                UserDefaultModel.user_id.in_(_get_visible_user_ids(db, user_id)),
+            )
+            .limit(1)
+            .all()
+        )
+        if admin_rerank_defaults:
+            return str(admin_rerank_defaults[0].model.model_id)
+    except Exception:
+        logger.exception("get_default_rerank_model failed")
+    finally:
+        db.close()
+    return None
+
+
 def _get_models_by_category(
     db: Session, ability: str, model_type: str, user_id: Optional[int] = None
 ) -> Dict[str, Any]:
@@ -878,12 +926,20 @@ def _get_models_by_category(
             ):
                 continue
 
-            api_key = cast(Optional[str], getattr(db_model, "api_key", None))
-            if not api_key:
-                raise ValueError(f"{model_type} model API key cannot be empty")
+            # api_key may be empty for self-hosted Xinference (no auth);
+            # the adapter handles that gracefully so we don't pre-validate
+            # it here. Skip the model only when base_url is missing —
+            # without that there's no way to reach the service. Raising
+            # here would abort loading ALL models of this category in one
+            # go (the outer try/except returns {}), so any per-model issue
+            # is downgraded to a per-model warning + skip.
             base_url = cast(Optional[str], getattr(db_model, "base_url", None))
             if not base_url:
-                raise ValueError(f"{model_type} model base URL cannot be empty")
+                logger.warning(
+                    f"Skipping {model_type} model {db_model.model_name}: "
+                    "base_url is empty"
+                )
+                continue
 
             model_provider = str(db_model.model_provider).strip().lower()
             try:

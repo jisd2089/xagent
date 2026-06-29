@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useRef, useMemo } from "react"
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { ResizableThreeColumnLayout } from "@/components/layout/resizable-three-column-layout"
 import { AgentBuilderChat } from "./agent-builder-chat"
 import { Input } from "@/components/ui/input"
@@ -8,17 +8,13 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { ChatInput } from "@/components/chat/ChatInput"
-import { ChatMessage } from "@/components/chat/ChatMessage"
 import { apiRequest } from "@/lib/api-wrapper"
-import { getApiUrl, getWsUrl } from "@/lib/utils"
-import { PlusCircle, MessageSquare, Upload, Download, Settings2, Check, Zap, BookOpen, ChevronLeft, Gauge, Sparkles, Loader2, X, XCircle, Trash2, Bot, Brain } from "lucide-react"
+import { getApiUrl } from "@/lib/utils"
+import { PlusCircle, MessageSquare, Upload, Settings2, Check, Zap, BookOpen, ChevronLeft, Gauge, Sparkles, Loader2, X, XCircle, Trash2, Bot, Brain, Webhook, CalendarClock } from "lucide-react"
 import { ConnectMcpDialog } from "@/components/mcp/connect-mcp-dialog"
 import { useI18n } from "@/contexts/i18n-context"
-import { useAuth } from "@/contexts/auth-context"
+import { useApp } from "@/contexts/app-context-chat"
 import { useMcpApps } from "@/contexts/mcp-apps-context"
-import { FileAttachment } from "@/components/file/file-attachment"
 import { createFileChipHTML } from "@/components/chat/FileChip"
 import { MultiSelect } from "@/components/ui/multi-select"
 import { useFileMention } from "@/hooks/use-file-mention"
@@ -27,7 +23,6 @@ import { Select } from "@/components/ui/select"
 import {
   InfoTooltip,
 } from "@/components/ui/tooltip"
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import {
   Dialog,
   DialogContent,
@@ -38,9 +33,14 @@ import {
 } from "@/components/ui/dialog"
 import { useRouter, useSearchParams } from "next/navigation"
 import { KnowledgeBaseCreationDialog } from "@/components/kb/knowledge-base-creation-dialog"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/sonner"
 import { cn } from "@/lib/utils"
 import { getBrandingFromEnv } from "@/lib/branding"
+import { findMatchingMcpApp, findMatchingMcpServer, mcpNameMatches } from "@/lib/mcp-lookup"
+import { BuildFilePreviewSheet } from "./build-file-preview-sheet"
+import { TaskConversationPanel } from "@/components/task/task-conversation-panel"
+import { AgentTriggersDialog } from "./agent-triggers-dialog"
+import { AgentTrigger, AgentTriggerType, listAgentTriggers } from "@/lib/agent-triggers-api"
 
 interface KnowledgeBase {
   name: string
@@ -90,13 +90,6 @@ interface AgentModelConfig {
   compact: number | null
 }
 
-interface Message {
-  role: "user" | "assistant" | "system"
-  content: string | React.ReactNode
-  traceEvents?: any[]
-  timestamp?: number
-}
-
 interface AgentBuilderProps {
   agentId?: string
 }
@@ -110,9 +103,9 @@ interface TemplateRequirements {
 
 export function AgentBuilder({ agentId }: AgentBuilderProps) {
   const MAX_INSTRUCTIONS_LENGTH = 8192;
+  const { state, setTaskId, sendMessage, dispatch, closeFilePreview } = useApp()
   const { t, locale } = useI18n()
-  const { token } = useAuth()
-  const { apps: officialApps, getAppIcon } = useMcpApps()
+  const { apps: officialApps, getAppIcon, refresh: refreshMcpApps } = useMcpApps()
   const router = useRouter()
   const searchParams = useSearchParams()
   const templateId = searchParams.get("template")
@@ -144,6 +137,10 @@ export function AgentBuilder({ agentId }: AgentBuilderProps) {
   const [originalData, setOriginalData] = useState<any>(null)
   const [isKbModalOpen, setIsKbModalOpen] = useState(false)
   const [isModelConfigOpen, setIsModelConfigOpen] = useState(false)
+  const [isTriggersDialogOpen, setIsTriggersDialogOpen] = useState(false)
+  const [triggerDialogInitialType, setTriggerDialogInitialType] = useState<AgentTriggerType | null>(null)
+  const [triggerSummary, setTriggerSummary] = useState<AgentTrigger[]>([])
+  const [triggerSummaryLoading, setTriggerSummaryLoading] = useState(false)
   const [showAIAssistant, setShowAIAssistant] = useState(false)
   const [configSynced, setConfigSynced] = useState(false)
   const [notFound, setNotFound] = useState(false)
@@ -173,6 +170,41 @@ export function AgentBuilder({ agentId }: AgentBuilderProps) {
   const [mcpServers, setMcpServers] = useState<any[]>([])
   const [isConnectMcpOpen, setIsConnectMcpOpen] = useState(false)
   const [isInitialDataLoaded, setIsInitialDataLoaded] = useState(false)
+
+  const refreshTriggerSummary = useCallback(async () => {
+    if (!localAgentId) {
+      setTriggerSummary([])
+      return
+    }
+
+    setTriggerSummaryLoading(true)
+    try {
+      setTriggerSummary(await listAgentTriggers(localAgentId))
+    } catch (error) {
+      console.error("Failed to load trigger summary:", error)
+    } finally {
+      setTriggerSummaryLoading(false)
+    }
+  }, [localAgentId])
+
+  useEffect(() => {
+    void refreshTriggerSummary()
+  }, [refreshTriggerSummary])
+
+  const triggerStats = useMemo(() => {
+    const stats = {
+      webhook: { total: 0, enabled: 0 },
+      scheduled: { total: 0, enabled: 0 },
+    }
+    triggerSummary.forEach((trigger) => {
+      if (trigger.type !== "webhook" && trigger.type !== "scheduled") return
+      stats[trigger.type].total += 1
+      if (trigger.enabled) {
+        stats[trigger.type].enabled += 1
+      }
+    })
+    return stats
+  }, [triggerSummary])
 
   // File picker state for Instructions
   const instructionsRef = useRef<HTMLDivElement>(null)
@@ -353,185 +385,38 @@ export function AgentBuilder({ agentId }: AgentBuilderProps) {
     }
   }, [instructions]);
 
-  // Chat State
-  const [messages, setMessages] = useState<Message[]>([])
-
-  useEffect(() => {
-    setMessages([{
-      role: "assistant",
-      content: t("builds.preview.initialMessage"),
-      timestamp: Date.now()
-    }])
-  }, [t])
-
-  const [isChatLoading, setIsChatLoading] = useState(false)
-  const [taskStatus, setTaskStatus] = useState<"idle" | "running" | "paused">("idle")
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [files, setFiles] = useState<File[]>([])
+  const previewTaskIdRef = useRef<number | null>(null)
 
-  // WebSocket for preview
-  const [wsConnected, setWsConnected] = useState(false)
-  const wsRef = useRef<WebSocket | null>(null)
-  const previewStepsRef = useRef<any[]>([])
-  const traceEventsRef = useRef<any[]>([])
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const reconnectAttemptsRef = useRef(0)
-  const maxReconnectAttempts = 5
+  const resetPreviewSession = useCallback(() => {
+    previewTaskIdRef.current = null
+    closeFilePreview()
+    dispatch({ type: "CLEAR_MESSAGES" })
+    dispatch({ type: "SET_TRACE_EVENTS", payload: [] })
+    dispatch({ type: "SET_STEPS", payload: [] })
+    dispatch({ type: "SET_DAG_EXECUTION", payload: null })
+    dispatch({ type: "SET_CURRENT_TASK", payload: null })
+    dispatch({ type: "SET_HISTORY_LOADING", payload: false })
+    setTaskId(null, { navigate: false })
+  }, [closeFilePreview, dispatch, setTaskId])
 
-  // Setup WebSocket connection
+  const invalidatePreviewTask = useCallback(() => {
+    previewTaskIdRef.current = null
+  }, [])
+
   useEffect(() => {
-    const connectWebSocket = () => {
-      if (!token) {
-        console.log('⏳ Waiting for token to connect to WS...')
-        return
-      }
-
-      // Clear any existing reconnect timeout
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current)
-        reconnectTimeoutRef.current = null
-      }
-
-      const baseUrl = getWsUrl()
-      const wsUrl = `${baseUrl}/ws/build/preview?token=${token}`
-      console.log('🔌 Connecting to Build Preview WS:', wsUrl)
-
-      try {
-        const ws = new WebSocket(wsUrl)
-
-        ws.onopen = () => {
-          console.log('✅ Build preview WebSocket connected')
-          setWsConnected(true)
-          wsRef.current = ws
-          reconnectAttemptsRef.current = 0
-        }
-
-        ws.onmessage = (event) => {
-          try {
-            const message = JSON.parse(event.data)
-            console.log('Build preview WebSocket message:', message)
-
-            // Handle different message types
-            if (message.type === 'preview_started') {
-              setIsChatLoading(true)
-              setTaskStatus('running')
-              previewStepsRef.current = []
-              traceEventsRef.current = []
-              // Add a placeholder message for the assistant response
-              setMessages(prev => [...prev, {
-                role: "assistant",
-                content: "",
-                traceEvents: [],
-                timestamp: Date.now()
-              }])
-            } else if (message.type === 'task_paused') {
-              setIsChatLoading(false)
-              setTaskStatus('paused')
-            } else if (message.type === 'task_resumed') {
-              setIsChatLoading(true)
-              setTaskStatus('running')
-            } else if (message.type === 'trace_event') {
-              // Collect trace events and steps
-              traceEventsRef.current.push(message)
-              if (message.event_type === 'dag_step_start' || message.event_type === 'dag_step_end') {
-                previewStepsRef.current.push(message)
-              }
-              // Update the last message (assistant) with the new trace event
-              setMessages(prev => {
-                const newMessages = [...prev]
-                const lastMsg = newMessages[newMessages.length - 1]
-                if (lastMsg && lastMsg.role === 'assistant') {
-                  newMessages[newMessages.length - 1] = {
-                    ...lastMsg,
-                    traceEvents: [...(lastMsg.traceEvents || []), message]
-                  }
-                  return newMessages
-                }
-                return prev
-              })
-            } else if (message.type === 'task_completed') {
-              const completionText = typeof message.result === 'string'
-                ? message.result
-                : message.result?.content || ""
-              const interruptedByPause =
-                message.success === false &&
-                completionText === "ReActPattern interrupted."
-
-              if (interruptedByPause) {
-                return
-              }
-
-              setIsChatLoading(false)
-              setTaskStatus('idle')
-              setMessages(prev => {
-                const newMessages = [...prev]
-                const lastMsg = newMessages[newMessages.length - 1]
-                if (lastMsg && lastMsg.role === 'assistant') {
-                  newMessages[newMessages.length - 1] = {
-                    ...lastMsg,
-                    content: completionText || message.output || "Preview completed"
-                  }
-                  return newMessages
-                }
-                return prev
-              })
-            } else if (message.type === 'task_error') {
-              setIsChatLoading(false)
-              setTaskStatus('idle')
-              setMessages(prev => [...prev, {
-                role: "assistant",
-                content: `Error: ${message.error}`,
-                timestamp: Date.now()
-              }])
-            }
-          } catch (error) {
-            console.error('Failed to parse WebSocket message:', error)
-          }
-        }
-
-        ws.onerror = (error) => {
-          console.error('Build preview WebSocket error:', error)
-          // Don't set connected false here, let onclose handle it
-        }
-
-        ws.onclose = (event) => {
-          console.log('Build preview WebSocket closed', event.code, event.reason)
-          setWsConnected(false)
-          wsRef.current = null
-
-          // Don't reconnect if component unmounted or token changed (handled by cleanup)
-          // Retry logic
-          if (reconnectAttemptsRef.current < maxReconnectAttempts) {
-            reconnectAttemptsRef.current++
-            const delay = Math.min(1000 * reconnectAttemptsRef.current, 5000)
-            console.log(`🔄 Reconnecting in ${delay}ms... (Attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})`)
-            reconnectTimeoutRef.current = setTimeout(connectWebSocket, delay)
-          } else {
-            console.log('❌ Max reconnect attempts reached')
-          }
-        }
-      } catch (error) {
-        console.error('Failed to create WebSocket:', error)
-        // Retry immediately if creation failed
-        if (reconnectAttemptsRef.current < maxReconnectAttempts) {
-          reconnectAttemptsRef.current++
-          reconnectTimeoutRef.current = setTimeout(connectWebSocket, 1000)
-        }
-      }
-    }
-
-    connectWebSocket()
-
+    resetPreviewSession()
     return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current)
-      }
-      if (wsRef.current) {
-        wsRef.current.close()
-        wsRef.current = null
-      }
+      resetPreviewSession()
     }
-  }, [token])
+  }, [resetPreviewSession])
+
+  useEffect(() => {
+    if (!previewTaskIdRef.current) {
+      return
+    }
+    invalidatePreviewTask()
+  }, [instructions, executionMode, selectedKbs, selectedSkills, selectedToolCategories, selectedMcpServers, modelConfig, invalidatePreviewTask])
 
   // Fetch Data
   useEffect(() => {
@@ -711,7 +596,7 @@ export function AgentBuilder({ agentId }: AgentBuilderProps) {
               if (!connName) return;
 
               // Find the actual server object to use its exact name, to avoid case mismatches
-              const server = mcpServers.find(s => s.name.toLowerCase() === connName.toLowerCase() || s.app_id?.toLowerCase() === connName.toLowerCase().replace(/\s+/g, '-'))
+              const server = findMatchingMcpServer(mcpServers, connName)
               const finalName = server ? server.name : connName;
               if (!connectedMcpApps.includes(finalName)) {
                 connectedMcpApps.push(finalName)
@@ -784,6 +669,7 @@ export function AgentBuilder({ agentId }: AgentBuilderProps) {
   function getCategoryDescription(category: string): string {
     const descriptions: Record<string, string> = {
       'basic': t('builds.configForm.tools.categoryDescriptions.basic'),
+      'web_search': t('builds.configForm.tools.categoryDescriptions.webSearch'),
       'file': t('builds.configForm.tools.categoryDescriptions.file'),
       'vision': t('builds.configForm.tools.categoryDescriptions.vision'),
       'image': t('builds.configForm.tools.categoryDescriptions.image'),
@@ -804,6 +690,7 @@ export function AgentBuilder({ agentId }: AgentBuilderProps) {
   function getCategoryLabel(category: string): string {
     const labels: Record<string, string> = {
       'basic': t('builds.configForm.tools.categories.basic'),
+      'web_search': t('builds.configForm.tools.categories.webSearch'),
       'file': t('builds.configForm.tools.categories.file'),
       'vision': t('builds.configForm.tools.categories.vision'),
       'image': t('builds.configForm.tools.categories.image'),
@@ -820,146 +707,121 @@ export function AgentBuilder({ agentId }: AgentBuilderProps) {
     return labels[category] || category
   }
 
-  const [previewState, setPreviewState] = useState<{
-    isOpen: boolean;
-    fileUrl?: string;
-    fileName?: string;
-    fileType?: string;
-  }>({ isOpen: false });
-
-  const handlePreviewFile = (url: string, name: string, type: string) => {
-    setPreviewState({
-      isOpen: true,
-      fileUrl: url,
-      fileName: name,
-      fileType: type
-    });
-  };
-
-  const handleDownloadFile = () => {
-    if (!previewState.fileUrl || !previewState.fileName) return;
-    const a = document.createElement('a');
-    a.href = previewState.fileUrl;
-    a.download = previewState.fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
-
-  const handlePause = () => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: "pause" }))
-    }
-  }
-
-  const handleResume = () => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: "resume" }))
-    }
-  }
-
-  const handleSendMessage = async (content: string, _config?: any) => {
-    // Construct UI message with files if present
-    let uiContent: React.ReactNode = content
-    if (files.length > 0) {
-      // Create object URLs for local preview
-      const fileInfos = files.map(f => ({
-        name: f.name,
-        size: f.size,
-        type: f.type,
-        path: URL.createObjectURL(f)
-      }));
-
-      uiContent = (
-        <div className="space-y-2">
-          <div>{content}</div>
-          <FileAttachment
-            files={fileInfos}
-            variant="user-message"
-            onPreview={(file) => {
-              if (file.path) {
-                handlePreviewFile(file.path, file.name, file.type);
-              }
-            }}
-          />
-        </div>
-      )
-    }
-
-    setMessages(prev => [...prev, { role: "user", content: uiContent, timestamp: Date.now() }])
-    setIsChatLoading(true)
-
+  const handlePreviewSendMessage = async (content: string, _config?: any, files?: File[]) => {
     try {
       // Check if general model is selected
       if (!modelConfig.general) {
-        setMessages(prev => [...prev, {
-          role: "assistant",
-          content: t("builds.preview.errors.noModel"),
-          timestamp: Date.now()
-        }])
-        setIsChatLoading(false)
+        dispatch({
+          type: "ADD_MESSAGE",
+          payload: {
+            id: `preview-error-${Date.now()}`,
+            role: "assistant",
+            content: t("builds.preview.errors.noModel"),
+            timestamp: Date.now().toString(),
+            isResult: true,
+          }
+        })
         return
       }
 
-      // Check WebSocket connection
-      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-        setMessages(prev => [...prev, {
-          role: "assistant",
-          content: "⚠️ WebSocket not connected. The system is attempting to reconnect. Please wait a moment and try again.",
-          timestamp: Date.now()
-        }])
-        setIsChatLoading(false)
-        return
-      }
+      let previewTaskId = previewTaskIdRef.current
+      const processedFiles = (files || []).map(f => ({
+        file_id: (f as any).file_id,
+        name: f.name,
+        size: f.size,
+        type: f.type || ''
+      }))
 
-      // Process files if any
-      let processedFiles: any[] = []
-      if (files.length > 0) {
-        // Files are already uploaded by ChatInput component
-        processedFiles = files.map(f => ({
-          file_id: (f as any).file_id,
-          name: f.name,
-          size: f.size,
-          type: f.type || ''
-        }))
-      }
-
-      // Ensure message is not empty for backend
       let backendMessage = content
       if (!backendMessage.trim() && processedFiles.length > 0) {
         backendMessage = `Uploaded files: ${processedFiles.map(f => f.name).join(', ')}`
       }
 
-      // Add selected MCP servers back into tool_categories
-      const finalToolCategories = [...selectedToolCategories];
+      const finalToolCategories = [...selectedToolCategories]
       selectedMcpServers.forEach(server => {
-        finalToolCategories.push(`mcp:${server}`);
-      });
+        finalToolCategories.push(`mcp:${server}`)
+      })
 
-      // Send preview request via WebSocket
-      wsRef.current.send(JSON.stringify({
-        type: "preview",
-        agent_id: localAgentId && typeof localAgentId === 'string' ? parseInt(localAgentId) : null,  // Exclude this agent from agent tools if published
-        instructions,
-        execution_mode: executionMode,
-        models: modelConfig,
-        knowledge_bases: selectedKbs,
-        skills: selectedSkills,
-        tool_categories: finalToolCategories,
-        message: backendMessage,
-        files: processedFiles
-      }))
+      if (!previewTaskId) {
+        const response = await apiRequest(`${getApiUrl()}/api/chat/task/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: (backendMessage || "Build preview").slice(0, 80),
+            description: backendMessage,
+            llm_ids: [
+              modelConfig.general ? String(modelConfig.general) : null,
+              modelConfig.small_fast ? String(modelConfig.small_fast) : null,
+              modelConfig.visual ? String(modelConfig.visual) : null,
+              modelConfig.compact ? String(modelConfig.compact) : null,
+            ],
+            agent_config: {
+              instructions,
+              knowledge_bases: selectedKbs,
+              skills: selectedSkills,
+              tool_categories: finalToolCategories,
+              is_preview: true,
+              preview_agent_id: localAgentId && typeof localAgentId === 'string' ? parseInt(localAgentId) : null,
+            },
+            execution_mode: executionMode,
+            is_visible: false,
+          }),
+        })
 
-      setFiles([])
+        if (!response.ok) {
+          throw new Error(await response.text())
+        }
 
+        const taskData = await response.json()
+        previewTaskId = Number(taskData.task_id)
+        if (!Number.isFinite(previewTaskId)) {
+          throw new Error("Preview task creation returned an invalid task id")
+        }
+        previewTaskIdRef.current = previewTaskId
+
+        // Close any file preview opened from the previous preview task before switching context.
+        closeFilePreview()
+        setTaskId(previewTaskId, { navigate: false })
+        dispatch({
+          type: "SET_CURRENT_TASK",
+          payload: {
+            id: previewTaskId.toString(),
+            title: taskData.title,
+            description: taskData.description || backendMessage,
+            status: taskData.status,
+            createdAt: taskData.created_at,
+            updatedAt: taskData.updated_at,
+            modelId: taskData.model_id,
+            smallFastModelId: taskData.small_fast_model_id,
+            visualModelId: taskData.visual_model_id,
+            compactModelId: taskData.compact_model_id,
+            modelName: taskData.model_name || taskData.modelName,
+            smallFastModelName: taskData.small_fast_model_name || taskData.smallFastModelName,
+            visualModelName: taskData.visual_model_name,
+            compactModelName: taskData.compact_model_name,
+            executionMode: taskData.execution_mode,
+            isDag: taskData.is_dag,
+            agentId: taskData.agent_id,
+            waitingQuestion: taskData.waiting_question,
+            waitingInteractions: taskData.waiting_interactions,
+          }
+        })
+        dispatch({ type: "TRIGGER_TASK_UPDATE" })
+      }
+
+      await sendMessage(backendMessage, { force: true, targetTaskId: previewTaskId }, files)
     } catch (error) {
       console.error("Preview failed:", error)
-      setMessages(prev => [...prev, {
-        role: "assistant",
-        content: t("builds.preview.errors.requestFailed"),
-        timestamp: Date.now()
-      }])
-      setIsChatLoading(false)
+      dispatch({
+        type: "ADD_MESSAGE",
+        payload: {
+          id: `preview-error-${Date.now()}`,
+          role: "assistant",
+          content: t("builds.preview.errors.requestFailed"),
+          timestamp: Date.now().toString(),
+          isResult: true,
+        }
+      })
     }
   }
 
@@ -1050,7 +912,9 @@ export function AgentBuilder({ agentId }: AgentBuilderProps) {
 
     // Add selected MCP servers back into tool_categories
     selectedMcpServers.forEach(server => {
-      finalToolCategories.push(`mcp:${server}`)
+      const connectedServer = findMatchingMcpServer(mcpServers, server)
+      const connectedApp = findMatchingMcpApp(officialApps, server)
+      finalToolCategories.push(`mcp:${connectedServer?.name || connectedApp?.name || server}`)
     })
 
     setIsCreating(true)
@@ -1283,8 +1147,10 @@ export function AgentBuilder({ agentId }: AgentBuilderProps) {
   const templateMissingMcp = Boolean(
     isTemplateBuildFlow &&
     templateRequirements?.requiredMcpServers.some((serverName) => {
-      const isSelected = selectedMcpServers.some((name) => name.toLowerCase() === serverName.toLowerCase())
-      const isConnected = mcpServers.some((server) => server.name.toLowerCase() === serverName.toLowerCase())
+      const isSelected = selectedMcpServers.some((name) => mcpNameMatches(name, serverName))
+      const connectedServer = findMatchingMcpServer(mcpServers, serverName)
+      const connectedApp = findMatchingMcpApp(officialApps, serverName)
+      const isConnected = Boolean(connectedServer || connectedApp?.is_connected)
       return !isSelected || !isConnected
     })
   )
@@ -1301,7 +1167,7 @@ export function AgentBuilder({ agentId }: AgentBuilderProps) {
         selectedToolCategories.length > 0 ||
         selectedMcpServers.length > 0
       )
-  const previewStepCompleted = messages.some((message) => message.role === "user")
+  const previewStepCompleted = state.messages.some((message) => message.role === "user")
   const shouldHighlightConfigStep = !configStepCompleted
   const shouldHighlightKbSection = useTemplateSpecificHighlights ? templateMissingKb : shouldHighlightConfigStep
   const shouldHighlightSkillsSection = useTemplateSpecificHighlights ? templateMissingSkills : shouldHighlightConfigStep
@@ -1682,7 +1548,7 @@ export function AgentBuilder({ agentId }: AgentBuilderProps) {
                 <DialogDescription className="flex items-center gap-1.5">
                   {t("builds.configForm.model.configureDescription")}
                   <a
-                    href="https://docs.xagent.run/models/overview"
+                    href="https://docs.xagent.co/models/overview"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center text-muted-foreground hover:text-primary transition-colors"
@@ -1901,27 +1767,140 @@ export function AgentBuilder({ agentId }: AgentBuilderProps) {
           )}
         </div>
 
+        <div className={cn(
+          "space-y-2 rounded-lg border bg-card/40 p-2.5",
+          triggerSummary.some((trigger) => trigger.enabled) && "border-primary/70",
+        )}>
+          <div className="flex flex-wrap items-center justify-between gap-3 px-0.5">
+            <div className="flex items-center gap-1.5">
+              <Label>{t("triggers.builder.title")}</Label>
+              <InfoTooltip content={localAgentId ? t("triggers.builder.tooltip") : t("triggers.builder.saveFirst")} />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setTriggerDialogInitialType(null)
+                setIsTriggersDialogOpen(true)
+              }}
+              disabled={!localAgentId}
+              className="h-7 shrink-0 px-2 text-xs text-primary"
+            >
+              <Zap className="mr-1 h-3.5 w-3.5" />
+              {t("triggers.builder.open")}
+            </Button>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            {([
+              {
+                type: "webhook" as const,
+                icon: Webhook,
+                title: t("triggers.cards.webhook.title"),
+                description: t("triggers.cards.webhook.description"),
+                iconClass: "bg-fuchsia-50 text-fuchsia-600 dark:bg-fuchsia-950/40 dark:text-fuchsia-300",
+              },
+              {
+                type: "scheduled" as const,
+                icon: CalendarClock,
+                title: t("triggers.cards.scheduled.title"),
+                description: t("triggers.cards.scheduled.description"),
+                iconClass: "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300",
+              },
+            ]).map((item) => {
+              const stat = triggerStats[item.type]
+              const enabled = stat.enabled > 0
+              return (
+                <div
+                  key={item.type}
+                  className={cn(
+                    "flex min-w-0 items-center gap-2 rounded-md border bg-background px-2.5 py-2 text-left transition-colors",
+                    enabled && "border-primary/40 bg-primary/[0.03]",
+                    !localAgentId && "opacity-60",
+                  )}
+                >
+                  <button
+                    type="button"
+                    disabled={!localAgentId}
+                    onClick={() => {
+                      setTriggerDialogInitialType(item.type)
+                      setIsTriggersDialogOpen(true)
+                    }}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-not-allowed"
+                  >
+                  <div className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded", item.iconClass)}>
+                    <item.icon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-sm font-medium">{item.title}</span>
+                      {triggerSummaryLoading ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                      ) : enabled ? (
+                        <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                          {t("triggers.cards.activeCount", { count: stat.enabled })}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                      {item.description}
+                    </div>
+                  </div>
+                  </button>
+                  <Switch
+                    checked={enabled}
+                    disabled={!localAgentId}
+                    onCheckedChange={() => {
+                      setTriggerDialogInitialType(item.type)
+                      setIsTriggersDialogOpen(true)
+                    }}
+                    className="scale-75"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    disabled={!localAgentId}
+                    onClick={() => {
+                      setTriggerDialogInitialType(item.type)
+                      setIsTriggersDialogOpen(true)
+                    }}
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                    title={t("triggers.builder.configure")}
+                  >
+                    <Settings2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
         <div className={getConfigSectionClasses(shouldHighlightConnectorSection)}>
           <div className="flex items-center gap-1.5">
             <Label>{t("tools.mcp.dialog.connector")}</Label>
           </div>
           <div className="flex flex-col gap-2">
             {selectedMcpServers.map((serverName, index) => {
-              const isConnected = mcpServers.some((s: any) => s.name === serverName)
-              const isSupported = officialApps.some((app: any) => app.name.toLowerCase() === serverName.toLowerCase() || app.id.toLowerCase() === serverName.toLowerCase())
+              const connectedServer = findMatchingMcpServer(mcpServers, serverName)
+              const matchingApp = findMatchingMcpApp(officialApps, serverName)
+              const isConnected = Boolean(connectedServer || matchingApp?.is_connected)
+              const isSupported = Boolean(matchingApp)
 
               let statusDesc = ""
 
-              if (isConnected) {
-                const server = mcpServers.find((s: any) => s.name === serverName)
-                statusDesc = server?.description || ""
+              if (connectedServer) {
+                statusDesc = connectedServer.description || ""
+              } else if (matchingApp?.is_connected) {
+                statusDesc = matchingApp.description || ""
               } else if (isSupported) {
                 statusDesc = t("tools.mcp.notConnected")
               } else {
                 statusDesc = t("tools.mcp.notSupported")
               }
 
-              const server = { name: serverName, description: statusDesc }
+              const server = { name: connectedServer?.name || matchingApp?.name || serverName, description: statusDesc }
               const icon = getAppIcon(server.name)
               return (
                 <div key={index} className={cn("flex items-center gap-3 p-2 rounded-md border", !isConnected && "opacity-50 bg-muted/50")}>
@@ -1949,7 +1928,7 @@ export function AgentBuilder({ agentId }: AgentBuilderProps) {
                       variant="ghost"
                       size="sm"
                       className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
-                      onClick={() => setSelectedMcpServers(prev => prev.filter(name => name !== server.name))}
+                      onClick={() => setSelectedMcpServers(prev => prev.filter(name => !mcpNameMatches(name, serverName)))}
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -2018,7 +1997,6 @@ export function AgentBuilder({ agentId }: AgentBuilderProps) {
 
   const RightPanel = (
     <div className="flex flex-col flex-1 min-h-0 h-full bg-background border-l">
-      {/* Header */}
       <div className="h-14 border-b flex items-center px-4 gap-2 bg-card/30">
         <MessageSquare className="h-5 w-5 text-muted-foreground" />
         <span className="font-medium">{t("builds.preview.title")}</span>
@@ -2034,71 +2012,30 @@ export function AgentBuilder({ agentId }: AgentBuilderProps) {
             variant="ghost"
             size="icon"
             className="h-8 w-8 text-muted-foreground hover:text-foreground"
-            disabled={isChatLoading}
-            onClick={() => {
-              setMessages([{
-                role: "assistant",
-                content: t("builds.preview.initialMessage"),
-                timestamp: Date.now()
-              }])
-              if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                wsRef.current.send(JSON.stringify({ type: "clear_context" }))
-              }
-            }}
+            onClick={resetPreviewSession}
             title={t("common.clear") || "Clear"}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
-          <div
-            className={`w-2.5 h-2.5 rounded-full ${wsConnected ? 'bg-green-500' : 'bg-red-500'}`}
-            title={wsConnected ? t("builds.preview.status.connected") : t("builds.preview.status.disconnected")}
-          />
-          <span className="text-xs text-muted-foreground">
-            {wsConnected ? t("builds.preview.status.connected") : t("builds.preview.status.disconnected")}
-          </span>
         </div>
       </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-hidden relative">
-        <ScrollArea className="h-full px-4 py-4">
-          <div className="space-y-4 max-w-3xl mx-auto">
-            {messages.map((msg, index) => (
-              <ChatMessage
-                key={index}
-                role={msg.role}
-                content={msg.content}
-                traceEvents={msg.traceEvents}
-                showProcessView={true}
-                timestamp={msg.timestamp}
-                taskStatus={index === messages.length - 1 && msg.role === 'assistant' ? taskStatus : undefined}
-              />
-            ))}
-          </div>
-        </ScrollArea>
-      </div>
-
-      {/* Input */}
-      <div className="p-4 border-t bg-card/30 mb-8">
-        <div className="max-w-3xl mx-auto">
-          <ChatInput
-            onSend={handleSendMessage}
-            isLoading={isChatLoading}
-            hideConfig={true}
-            files={files}
-            onFilesChange={setFiles}
-            taskStatus={taskStatus as any}
-            onPause={handlePause}
-            onResume={handleResume}
-          />
-        </div>
+      <div className="flex-1 min-h-0">
+        <TaskConversationPanel
+          mode="embedded-preview"
+          showTaskActions={true}
+          showTokenUsage={false}
+          showDagPreview={false}
+          showTaskFiles={true}
+          autoFocusInput={false}
+          onSend={handlePreviewSendMessage}
+        />
       </div>
     </div>
   )
 
   if (notFound) {
     return (
-      <div className="flex flex-col items-center justify-center h-[100vh] w-full bg-background text-center p-4">
+      <div className="flex h-full min-h-[calc(100dvh-4rem)] w-full flex-col items-center justify-center bg-background p-4 text-center">
         <Bot className="w-16 h-16 text-muted-foreground mb-4 opacity-20" />
         <h2 className="text-2xl font-bold mb-2">{t("builds.editor.error.notFound")}</h2>
         <p className="text-muted-foreground max-w-md mb-6">
@@ -2112,7 +2049,7 @@ export function AgentBuilder({ agentId }: AgentBuilderProps) {
   }
 
   return (
-    <div className="flex flex-col h-[100vh] overflow-hidden">
+    <div className="flex h-full flex-col overflow-hidden">
       <div className="flex-1 min-h-0 w-full overflow-y-auto md:overflow-hidden">
         <ResizableThreeColumnLayout
           showLeftPanel={showAIAssistant}
@@ -2151,57 +2088,6 @@ export function AgentBuilder({ agentId }: AgentBuilderProps) {
           minRightWidth={20}
         />
       </div>
-      {/* File Preview Drawer */}
-      <Sheet open={previewState.isOpen} onOpenChange={(open) => setPreviewState(prev => ({ ...prev, isOpen: open }))}>
-        <SheetContent className="!max-w-[1200px] w-[90vw] sm:w-[800px] md:w-[900px] lg:w-[1000px] flex flex-col p-0 gap-0">
-          <div className="flex flex-col gap-1.5 p-4 flex-shrink-0 bg-background/80 backdrop-blur-sm border-b">
-            <div className="flex items-center justify-between">
-              <SheetTitle className="flex items-center gap-2">
-                {previewState.fileName}
-              </SheetTitle>
-              <div className="flex items-center gap-2 mr-8">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleDownloadFile}
-                  className="h-8 w-8 p-0"
-                  title={t("files.previewDialog.buttons.download")}
-                >
-                  <Download className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-          <div className="flex-1 overflow-hidden flex flex-col min-h-0 bg-muted/30 p-4">
-            {previewState.fileUrl && (
-              <div className="w-full h-full flex items-center justify-center bg-background rounded-lg border overflow-auto">
-                {previewState.fileType?.startsWith('image/') ? (
-                  <img
-                    src={previewState.fileUrl}
-                    alt={previewState.fileName}
-                    className="max-w-full max-h-full object-contain"
-                  />
-                ) : (previewState.fileType?.includes('pdf') || previewState.fileName?.endsWith('.pdf')) ? (
-                  <iframe
-                    src={previewState.fileUrl}
-                    className="w-full h-full border-0"
-                    title={previewState.fileName}
-                  />
-                ) : (
-                  <div className="text-center p-8">
-                    <p className="text-muted-foreground mb-4">{t("files.previewDialog.noPreview") || "No preview available for this file type."}</p>
-                    <Button onClick={handleDownloadFile} variant="outline">
-                      <Download className="mr-2 h-4 w-4" />
-                      {t("files.previewDialog.buttons.download")}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
-
       {/* Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={handleDialogClose}>
         <DialogContent>
@@ -2241,6 +2127,28 @@ export function AgentBuilder({ agentId }: AgentBuilderProps) {
         }}
       />
 
+      <AgentTriggersDialog
+        agentId={localAgentId ? Number(localAgentId) : null}
+        agentName={name}
+        open={isTriggersDialogOpen}
+        onOpenChange={(dialogOpen) => {
+          setIsTriggersDialogOpen(dialogOpen)
+          if (!dialogOpen) {
+            setTriggerDialogInitialType(null)
+            void refreshTriggerSummary()
+          }
+        }}
+        onChanged={refreshTriggerSummary}
+        initialType={triggerDialogInitialType}
+      />
+
+      {state.filePreview.isOpen && (
+        <div className="absolute inset-y-0 right-0 z-50 w-full max-w-[720px] p-4 pointer-events-none">
+          <div className="h-full pointer-events-auto">
+            <BuildFilePreviewSheet />
+          </div>
+        </div>
+      )}
       <ConnectMcpDialog
         open={isConnectMcpOpen}
         onOpenChange={setIsConnectMcpOpen}
@@ -2250,6 +2158,7 @@ export function AgentBuilder({ agentId }: AgentBuilderProps) {
           setSelectedMcpServers(selectedApps)
         }}
         onSuccess={() => {
+          refreshMcpApps().catch(console.error)
           apiRequest(`${getApiUrl()}/api/mcp/servers`)
             .then(res => res.json())
             .then(data => setMcpServers(data || []))

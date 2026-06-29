@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { createFileChipHTML } from "./FileChip";
 import { useRouter } from "next/navigation";
 import { Paperclip, X, File as FileIcon, Sparkles, Pause, Play, Loader2, ArrowUp, Globe } from "lucide-react";
@@ -8,9 +8,10 @@ import { useI18n } from "@/contexts/i18n-context";
 import { useApp } from "@/contexts/app-context-chat";
 import { ConfigDialog } from "@/components/config-dialog";
 import { apiRequest, getUploadErrorMessage, isJsonRecord, parseApiResponse, UPLOAD_ERROR_MESSAGES } from "@/lib/api-wrapper";
+import { isPausableTaskStatus, isStoppedTaskStatus, normalizeTaskStatus, type TaskStatus } from "@/lib/task-status";
 import { useFileMention, FileItem } from "@/hooks/use-file-mention";
 import { FileMentionDropdown } from "./FileMentionDropdown";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,7 +33,7 @@ interface ChatInputProps {
   onModeChange?: (mode: "task" | "process") => void;
   inputValue?: string;
   onInputChange?: (value: string) => void;
-  taskStatus?: "pending" | "running" | "completed" | "failed" | "paused" | "waiting_for_user";
+  taskStatus?: TaskStatus | string;
   onPause?: () => void;
   onResume?: () => void;
   taskConfig?: {
@@ -54,6 +55,8 @@ interface ChatInputProps {
     name: string;
   }>;
   onRemoveSelectedAgent?: (agentId: number | string) => void;
+  uploadFile?: (file: File, params: { taskType: string }) => Promise<{ file_id: string }>;
+  deferFileUpload?: boolean;
 }
 
 export function ChatInput({
@@ -77,16 +80,20 @@ export function ChatInput({
   promptHighlightTerms = [],
   selectedAgents = [],
   onRemoveSelectedAgent,
+  uploadFile,
+  deferFileUpload = false,
 }: ChatInputProps) {
   const router = useRouter();
   const [internalMessage, setInternalMessage] = useState("");
   const [isFocused, setIsFocused] = useState(false);
   const [showNoModelAlert, setShowNoModelAlert] = useState(false);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isSubmittingRef = useRef(false);
+  const dragDepthRef = useRef(0);
   const { t } = useI18n();
   const { openFilePreview } = useApp();
 
@@ -250,6 +257,23 @@ export function ChatInput({
   // State to track files currently being uploaded
   const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
 
+  const extractDroppedFiles = (dataTransfer: DataTransfer) => {
+    const itemFiles = Array.from(dataTransfer.items || [])
+      .filter((item) => item.kind === "file")
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => file instanceof File);
+
+    return itemFiles.length > 0 ? itemFiles : Array.from(dataTransfer.files || []);
+  };
+
+  const isFileDragEvent = (e: React.DragEvent) =>
+    Array.from(e.dataTransfer?.types || []).includes("Files");
+
+  const resetDragState = () => {
+    dragDepthRef.current = 0;
+    setIsDraggingFiles(false);
+  };
+
   // Helper to upload files immediately
   const uploadFiles = async (newFiles: File[]) => {
     if (newFiles.length === 0) return;
@@ -272,33 +296,44 @@ export function ChatInput({
       uploadAbortControllersRef.current.set(fileId, controller);
 
       try {
-        const formData = new FormData();
-        formData.append('file', file);
-        // Default to task mode if not specified
-        formData.append('task_type', mode || 'task');
+        const currentTaskType = mode || 'task';
 
-        const response = await apiRequest(`${getUploadApiUrl()}/api/files/upload`, {
-          method: 'POST',
-          body: formData,
-          signal: controller.signal
-        });
-
-        const parsed = await parseApiResponse(response);
-
-        if (response.ok && isJsonRecord(parsed.data)) {
-          const data = parsed.data;
-          if (data.success && typeof data.file_id === 'string') {
-            // Attach file_id to the File object
-            (file as File & { file_id?: string }).file_id = data.file_id;
+        if (uploadFile) {
+          const result = await uploadFile(file, { taskType: currentTaskType });
+          if (result && typeof result.file_id === 'string') {
+            (file as File & { file_id?: string }).file_id = result.file_id;
           } else {
             failedFiles.add(file);
           }
         } else {
-          failedFiles.add(file);
-          uploadErrorMessage = uploadErrorMessage || getUploadErrorMessage(response, parsed, {
-            generic: t("files.uploadFailed") || "Failed to upload some files",
-            ...UPLOAD_ERROR_MESSAGES,
+          const formData = new FormData();
+          formData.append('file', file);
+          // Default to task mode if not specified
+          formData.append('task_type', currentTaskType);
+
+          const response = await apiRequest(`${getUploadApiUrl()}/api/files/upload`, {
+            method: 'POST',
+            body: formData,
+            signal: controller.signal
           });
+
+          const parsed = await parseApiResponse(response);
+
+          if (response.ok && isJsonRecord(parsed.data)) {
+            const data = parsed.data;
+            if (data.success && typeof data.file_id === 'string') {
+              // Attach file_id to the File object
+              (file as File & { file_id?: string }).file_id = data.file_id;
+            } else {
+              failedFiles.add(file);
+            }
+          } else {
+            failedFiles.add(file);
+            uploadErrorMessage = uploadErrorMessage || getUploadErrorMessage(response, parsed, {
+              generic: t("files.uploadFailed") || "Failed to upload some files",
+              ...UPLOAD_ERROR_MESSAGES,
+            });
+          }
         }
       } catch (error: any) {
         if (error.name === 'AbortError') {
@@ -327,8 +362,20 @@ export function ChatInput({
     }
   };
 
+  const appendFiles = (newFiles: File[]) => {
+    if (newFiles.length === 0 || !onFilesChange || isInputBusy) return;
+    onFilesChange([...filesRef.current, ...newFiles]);
+    if (!deferFileUpload) {
+      uploadFiles(newFiles);
+    }
+  };
+
   // Fetch default models on mount
   useEffect(() => {
+    if (hideConfig) {
+      return;
+    }
+
     const fetchDefaultModels = async () => {
       try {
         const apiUrl = getApiUrl();
@@ -393,7 +440,7 @@ export function ChatInput({
     };
 
     fetchDefaultModels();
-  }, []);
+  }, [hideConfig]);
 
   // Update config when taskConfig changes
   useEffect(() => {
@@ -429,27 +476,72 @@ export function ChatInput({
     setAgentConfig(config);
   };
 
-  const allowsInterruptedInput = taskStatus === 'paused' || taskStatus === 'waiting_for_user';
-  const isInputBusy = !!isLoading && !allowsInterruptedInput;
+  const normalizedTaskStatus = normalizeTaskStatus(taskStatus);
+  const allowsLiveGuidanceInput =
+    normalizedTaskStatus === 'running' ||
+    normalizedTaskStatus === 'paused' ||
+    normalizedTaskStatus === 'waiting_for_user';
+  const isInputBusy =
+    !!isLoading &&
+    !allowsLiveGuidanceInput &&
+    !isStoppedTaskStatus(normalizedTaskStatus);
 
+  const hasDraft = message.trim().length > 0 || files.length > 0;
   const canSubmit = () => {
-    const hasText = message.trim().length > 0;
-    const hasFiles = files.length > 0;
     const isUploadingFiles = uploadingFiles.size > 0;
-    return (hasText || hasFiles) && !isInputBusy && !isUploadingFiles;
+    return hasDraft && !isInputBusy && !isUploadingFiles;
   };
   const canPauseTask =
-    taskStatus === 'running' ||
-    (isLoading &&
-      !!onPause &&
-      !['completed', 'failed', 'paused', 'waiting_for_user'].includes(taskStatus || ''));
+    !!isLoading &&
+    !!onPause &&
+    isPausableTaskStatus(normalizedTaskStatus);
+  const shouldShowPauseButton = canPauseTask && !hasDraft;
+
+  const handleDragEnter = (e: React.DragEvent<HTMLFormElement>) => {
+    if (!isFileDragEvent(e) || isInputBusy || hideFileUpload) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepthRef.current += 1;
+    setIsDraggingFiles(true);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLFormElement>) => {
+    if (!isFileDragEvent(e) || isInputBusy || hideFileUpload) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "copy";
+    if (!isDraggingFiles) {
+      setIsDraggingFiles(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLFormElement>) => {
+    if (!isFileDragEvent(e)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) {
+      setIsDraggingFiles(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLFormElement>) => {
+    if (!isFileDragEvent(e) || isInputBusy || hideFileUpload) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const droppedFiles = extractDroppedFiles(e.dataTransfer);
+    resetDragState();
+    appendFiles(droppedFiles);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!canSubmit() || isSubmittingRef.current) return;
 
-    if (!agentConfig.model) {
+    const hasSelectedAgent = selectedAgents.length > 0;
+    const shouldRequireModelSelection = !hideConfig && !readOnlyConfig;
+    if (shouldRequireModelSelection && !hasSelectedAgent && !agentConfig.model) {
       setShowNoModelAlert(true);
       return;
     }
@@ -465,6 +557,7 @@ export function ChatInput({
       };
 
       await onSend(messageToSend, configToSend);
+      fileMention.resetMention();
 
       if (isControlled) {
         onInputChange?.("");
@@ -527,10 +620,7 @@ export function ChatInput({
         }
       });
 
-      if (pastedFiles.length > 0) {
-        onFilesChange?.([...files, ...pastedFiles]);
-        uploadFiles(pastedFiles);
-      }
+      appendFiles(pastedFiles);
     } else {
       // Strip formatting from text paste
       e.preventDefault();
@@ -543,8 +633,7 @@ export function ChatInput({
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
-    onFilesChange?.([...files, ...selectedFiles]);
-    uploadFiles(selectedFiles);
+    appendFiles(selectedFiles);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -648,10 +737,26 @@ export function ChatInput({
               ? "shadow-[0_0_0_3px_rgba(48,64,207,0.16)]"
               : ""
           )}
+          onDragEnter={handleDragEnter}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
           style={{
-            borderColor: selectedAgents.length > 0 ? "#3040cf" : isFocused ? "#3040cf" : "#d7deec"
+            borderColor: selectedAgents.length > 0 ? "#3040cf" : isDraggingFiles || isFocused ? "#3040cf" : "#d7deec"
           }}
         >
+          {isDraggingFiles && (
+            <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-primary/5 px-4">
+              <div className="flex max-w-sm items-center gap-3 rounded-2xl border border-primary/20 bg-background/95 px-4 py-3 text-left shadow-lg backdrop-blur-sm">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Paperclip className="h-4 w-4" />
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-foreground">{t("chatPage.fileUpload.dropHere")}</div>
+                </div>
+              </div>
+            </div>
+          )}
           {files.length > 0 && (
             <div className="flex flex-wrap gap-2 px-4 pt-3">
               {files.map((file, index) => {
@@ -712,7 +817,30 @@ export function ChatInput({
 
           {/* Bottom toolbar or inline button */}
           {compact ? (
-            <div className="absolute right-2 bottom-2">
+            <div className="absolute right-2 bottom-2 flex items-center gap-2">
+              {!hideFileUpload && (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.xlsx,.xls,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.webp"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-secondary/80 rounded-full"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isInputBusy}
+                    title={t("chatPage.input.actions.upload")}
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
               <Button
                 type="submit"
                 size="icon"
@@ -798,48 +926,46 @@ export function ChatInput({
                 )}
               </div>
 
-              <div className="flex items-center gap-3">
-                {canPauseTask ? (
+              <div className="flex items-center gap-2">
+                {shouldShowPauseButton && (
                   <Button
                     type="button"
                     size="icon"
                     onClick={onPause}
                     className="h-8 w-8 rounded-full transition-all duration-300 bg-yellow-500 hover:bg-yellow-600 text-white"
+                    title={t('agent.input.actions.pauseTask')}
                   >
                     <Pause className="h-4 w-4" />
                   </Button>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="text-[13px] font-medium text-muted-foreground/50 select-none mr-1">
-                      ⏎ {t("common.send")}
-                    </span>
-                    <Button
-                      type="submit"
-                      size="icon"
-                      disabled={!canSubmit()}
-                      className={cn(
-                        "h-8 w-8 rounded-lg transition-all duration-300",
-                        !canSubmit() && "bg-muted text-muted-foreground/50"
-                      )}
-                    >
-                      {isInputBusy ? (
-                        <Sparkles className="h-4 w-4 animate-pulse" />
-                      ) : (
-                        <ArrowUp className="h-4 w-4" />
-                      )}
-                    </Button>
-                    {taskStatus === 'paused' && onResume && (
-                      <Button
-                        type="button"
-                        size="icon"
-                        onClick={onResume}
-                        className="h-8 w-8 rounded-full transition-all duration-300 bg-green-500 hover:bg-green-600 text-white"
-                        title={t('agent.input.actions.resumeTask')}
-                      >
-                        <Play className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
+                )}
+                <span className="text-[13px] font-medium text-muted-foreground/50 select-none mr-1">
+                  ⏎ {t("common.send")}
+                </span>
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={!canSubmit()}
+                  className={cn(
+                    "h-8 w-8 rounded-lg transition-all duration-300",
+                    !canSubmit() && "bg-muted text-muted-foreground/50"
+                  )}
+                >
+                  {isInputBusy ? (
+                    <Sparkles className="h-4 w-4 animate-pulse" />
+                  ) : (
+                    <ArrowUp className="h-4 w-4" />
+                  )}
+                </Button>
+                {normalizedTaskStatus === 'paused' && onResume && (
+                  <Button
+                    type="button"
+                    size="icon"
+                    onClick={onResume}
+                    className="h-8 w-8 rounded-full transition-all duration-300 bg-green-500 hover:bg-green-600 text-white"
+                    title={t('agent.input.actions.resumeTask')}
+                  >
+                    <Play className="h-4 w-4" />
+                  </Button>
                 )}
               </div>
             </div>

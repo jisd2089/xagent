@@ -31,7 +31,11 @@ repos:
           - langchain-openai
           - langchain-community
           - numexpr
-          - numpy
+          # Pin to the project's resolved numpy (uv.lock). Unpinned, the mypy
+          # hook env pulls the latest numpy, whose newer stubs use PEP 695
+          # `type` syntax that fails under python_version = 3.11 and aborts the
+          # whole mypy run before it reaches project code.
+          - numpy==1.26.4
           - html2text
           - rich
           - prompt_toolkit

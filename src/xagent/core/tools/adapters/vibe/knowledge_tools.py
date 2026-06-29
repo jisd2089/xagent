@@ -6,13 +6,26 @@ from typing import TYPE_CHECKING, Any, List
 from .factory import register_tool
 
 if TYPE_CHECKING:
+    from ...core.RAG_tools.kb import KBToolCompatibilityFacade
     from .config import BaseToolConfig
 
 logger = logging.getLogger(__name__)
 
 
-@register_tool
+def _get_tool_compatibility_facade() -> "KBToolCompatibilityFacade":
+    """Return the coordinator-owned KB tool compatibility facade."""
+    from ...core.RAG_tools.kb import get_kb_coordinator
+
+    return get_kb_coordinator().tool_compatibility
+
+
+@register_tool(categories={"knowledge"})
 async def create_knowledge_tools(config: "BaseToolConfig") -> List[Any]:
+    """Create knowledge base search tools through the tool facade."""
+    return await _get_tool_compatibility_facade().create_knowledge_tools(config)
+
+
+async def _create_knowledge_tools_impl(config: "BaseToolConfig") -> List[Any]:
     """Create knowledge base search tools."""
     tools: List[Any] = []
 
@@ -37,6 +50,10 @@ async def create_knowledge_tools(config: "BaseToolConfig") -> List[Any]:
             )
             tools.append(list_tool)
 
+        # NOTE: Do not inject the user's default rerank model here.
+        # rerank is per-KB: the search pipeline only reranks when the
+        # KB it is querying has rerank_model_id configured in its
+        # collection metadata.
         knowledge_tool = get_knowledge_search_tool(
             allowed_collections=allowed_collections,
             user_id=user_id,

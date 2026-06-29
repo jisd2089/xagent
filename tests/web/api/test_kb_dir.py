@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from xagent.core.file_storage.factory import get_file_storage
 from xagent.core.tools.core.RAG_tools.core.config import DEFAULT_VECTOR_STORE_SCAN_LIMIT
 from xagent.core.tools.core.RAG_tools.storage.contracts import DocumentRecord
 from xagent.core.tools.core.RAG_tools.utils.string_utils import (
@@ -20,6 +21,7 @@ from xagent.web.api.kb import kb_router
 from xagent.web.models.database import Base, get_db
 from xagent.web.models.uploaded_file import UploadedFile
 from xagent.web.models.user import User
+from xagent.web.services.managed_file_ref import ManagedFileRef
 
 
 @pytest.fixture(scope="function")
@@ -170,6 +172,63 @@ def _make_delete_tracker():
     return deleted_doc_ids, _fake_delete_document
 
 
+def test_list_collection_uploaded_file_owner_ids_uses_strict_path_containment(
+    test_env,
+    temp_uploads,
+):
+    """UploadedFile owner discovery should not confuse similar collection paths."""
+    _, _, user, TestingSessionLocal = test_env
+    from xagent.web.services.kb_collection_service import (
+        list_collection_uploaded_file_owner_ids,
+    )
+
+    session = TestingSessionLocal()
+    try:
+        matching_path = temp_uploads / f"user_{user.id}" / "FAQ" / "a.pdf"
+        similar_path = temp_uploads / f"user_{user.id}" / "FAQ-old" / "b.pdf"
+        unrelated_path = temp_uploads / f"user_{user.id}" / "Other" / "c.pdf"
+        for path in (matching_path, similar_path, unrelated_path):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("data")
+
+        session.add_all(
+            [
+                UploadedFile(
+                    file_id="match",
+                    user_id=user.id,
+                    filename="a.pdf",
+                    storage_path=str(matching_path),
+                    file_size=1,
+                ),
+                UploadedFile(
+                    file_id="similar",
+                    user_id=user.id,
+                    filename="b.pdf",
+                    storage_path=str(similar_path),
+                    file_size=1,
+                ),
+                UploadedFile(
+                    file_id="unrelated",
+                    user_id=user.id,
+                    filename="c.pdf",
+                    storage_path=str(unrelated_path),
+                    file_size=1,
+                ),
+            ]
+        )
+        session.commit()
+
+        assert list_collection_uploaded_file_owner_ids(
+            session, collection_name="FAQ"
+        ) == {user.id}
+        assert (
+            list_collection_uploaded_file_owner_ids(session, collection_name="Missing")
+            == set()
+        )
+    finally:
+        session.close()
+
+
 def test_kb_ingest_creates_collection_dir(test_env, temp_uploads):
     """Test that ingesting a document creates a collection-specific directory"""
     app, headers, user, _ = test_env
@@ -215,25 +274,18 @@ def test_kb_ingest_rolls_back_new_collection_on_partial_failure(test_env, temp_u
     filename = "failed.xlsx"
 
     with patch("xagent.web.api.kb.run_document_ingestion") as mock_ingest:
-        from xagent.core.tools.core.RAG_tools.core.schemas import (
-            IngestionResult,
-            IngestionStepResult,
-        )
+        from xagent.core.tools.core.RAG_tools.core.schemas import IngestionResult
 
         mock_ingest.return_value = IngestionResult(
-            status="partial",
-            doc_id="doc-failed",
-            parse_hash="parse-failed",
-            completed_steps=[
-                IngestionStepResult(name="initialize_collection"),
-                IngestionStepResult(name="resolve_embedding_adapter"),
-                IngestionStepResult(
-                    name="register_document",
-                    metadata={"doc_id": "doc-failed", "created": True},
-                ),
-            ],
-            failed_step="compute_embeddings",
-            message="embedding failed",
+            status="error",
+            doc_id=None,
+            parse_hash=None,
+            completed_steps=[],
+            failed_step="resolve_embedding_adapter",
+            message=(
+                "Model 'text-embedding-v4' not found in hub and no "
+                "environment configuration available for embedding."
+            ),
         )
 
         response = client.post(
@@ -336,7 +388,6 @@ def test_kb_ingest_returns_explicit_error_when_rollback_fails(test_env, temp_upl
     from xagent.core.tools.core.RAG_tools.core.schemas import (
         CollectionOperationResult,
         IngestionResult,
-        IngestionStepResult,
     )
 
     with (
@@ -351,19 +402,15 @@ def test_kb_ingest_returns_explicit_error_when_rollback_fails(test_env, temp_upl
             deleted_counts={},
         )
         mock_ingest.return_value = IngestionResult(
-            status="partial",
-            doc_id="doc-failed",
-            parse_hash="parse-failed",
-            completed_steps=[
-                IngestionStepResult(name="initialize_collection"),
-                IngestionStepResult(name="resolve_embedding_adapter"),
-                IngestionStepResult(
-                    name="register_document",
-                    metadata={"doc_id": "doc-failed", "created": True},
-                ),
-            ],
-            failed_step="compute_embeddings",
-            message="embedding failed",
+            status="error",
+            doc_id=None,
+            parse_hash=None,
+            completed_steps=[],
+            failed_step="resolve_embedding_adapter",
+            message=(
+                "Model 'text-embedding-v4' not found in hub and no "
+                "environment configuration available for embedding."
+            ),
         )
 
         response = client.post(
@@ -375,6 +422,8 @@ def test_kb_ingest_returns_explicit_error_when_rollback_fails(test_env, temp_upl
 
     assert response.status_code == 500
     assert "Failed to fully roll back ingest" in response.json()["detail"]
+    assert "Original ingestion error:" in response.json()["detail"]
+    assert "How to fix:" in response.json()["detail"]
 
 
 def test_kb_ingest_returns_explicit_error_when_physical_rollback_fails(
@@ -439,6 +488,169 @@ def test_kb_ingest_returns_explicit_error_when_physical_rollback_fails(
         "delete collection physical directory during rollback failed"
         in response.json()["detail"]
     )
+
+
+def test_kb_ingest_surfaces_embedding_configuration_fix_guidance(
+    test_env, temp_uploads
+):
+    """Direct ingest should explain why embedding resolution failed and how to fix it."""
+
+    app, headers, _user, _ = test_env
+    client = TestClient(app)
+
+    from xagent.core.tools.core.RAG_tools.core.schemas import IngestionResult
+
+    with (
+        patch(
+            "xagent.web.api.kb.run_document_ingestion",
+            return_value=IngestionResult(
+                status="error",
+                doc_id=None,
+                parse_hash=None,
+                completed_steps=[],
+                failed_step="resolve_embedding_adapter",
+                message=(
+                    "Model 'text-embedding-v4' not found in hub and no "
+                    "environment configuration available for embedding."
+                ),
+            ),
+        ),
+        patch(
+            "xagent.web.api.kb._rollback_failed_ingestion",
+            new=AsyncMock(return_value=None),
+        ),
+    ):
+        response = client.post(
+            "/api/kb/ingest",
+            files={"file": ("failed.xlsx", b"new content", "application/vnd.ms-excel")},
+            data={"collection": "embedding_config_missing"},
+            headers=headers,
+        )
+
+    assert response.status_code == 500
+    message = response.json()["message"]
+    assert (
+        "Cause: knowledge-base ingestion requires a resolvable embedding model"
+        in message
+    )
+    assert "Current embedding_model_id: 'text-embedding-v4'." in message
+    assert "How to fix:" in message
+    assert "DASHSCOPE_EMBEDDING_MODEL" in message
+
+
+@pytest.mark.asyncio
+async def test_rollback_failed_ingestion_uses_cached_file_id_after_row_delete(
+    test_env, temp_uploads
+) -> None:
+    """Rollback should not touch ORM attributes after UploadedFile cleanup deletes the row."""
+
+    _, _, user, TestingSessionLocal = test_env
+
+    from xagent.core.tools.core.RAG_tools.core.schemas import (
+        CollectionOperationResult,
+        IngestionResult,
+        IngestionStepResult,
+    )
+    from xagent.web.api import kb as kb_module
+    from xagent.web.services.kb_collection_service import CollectionPhysicalDeleteResult
+
+    collection_name = "rollback_deleted_uploaded_file"
+    file_path = temp_uploads / f"user_{user.id}" / collection_name / "failed.txt"
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_text("new content")
+
+    db = TestingSessionLocal()
+    try:
+        file_record = UploadedFile(
+            file_id="file-rollback-1",
+            user_id=user.id,
+            filename=file_path.name,
+            storage_path=str(file_path),
+            mime_type="text/plain",
+            file_size=file_path.stat().st_size,
+        )
+        db.add(file_record)
+        db.commit()
+        db.refresh(file_record)
+        file_id = str(file_record.file_id)
+
+        result = IngestionResult(
+            status="partial",
+            doc_id="doc-failed",
+            parse_hash="parse-failed",
+            completed_steps=[
+                IngestionStepResult(
+                    name="register_document",
+                    metadata={"doc_id": "doc-failed", "created": True},
+                )
+            ],
+            failed_step="compute_embeddings",
+            message=(
+                "Model 'text-embedding-v4' not found in hub and no environment "
+                "configuration available for embedding."
+            ),
+        )
+        mock_store = MagicMock()
+        mock_store.list_document_records.side_effect = [
+            [
+                DocumentRecord(
+                    doc_id="doc-failed",
+                    file_id=file_id,
+                    source_path=str(file_path),
+                )
+            ],
+            [],
+        ]
+        mock_cleanup_metadata = AsyncMock()
+
+        with (
+            patch("xagent.web.api.kb.get_vector_index_store", return_value=mock_store),
+            patch(
+                "xagent.web.api.kb.delete_collection",
+                return_value=CollectionOperationResult(
+                    status="success",
+                    collection=collection_name,
+                    message="deleted",
+                    affected_documents=[],
+                    deleted_counts={},
+                ),
+            ),
+            patch(
+                "xagent.web.api.kb.delete_collection_physical_dir",
+                return_value=CollectionPhysicalDeleteResult(
+                    status="success",
+                    collection_dir=file_path.parent,
+                ),
+            ),
+            patch(
+                "xagent.web.api.kb._cleanup_failed_new_collection_metadata",
+                new=mock_cleanup_metadata,
+            ),
+        ):
+            await kb_module._rollback_failed_ingestion(
+                db=db,
+                user=user,
+                collection_name=collection_name,
+                result=result,
+                file_path=file_path,
+                file_record=file_record,
+                collection_existed_before=False,
+                uploaded_file_existed_before=False,
+                file_backup_path=None,
+                had_existing_file=False,
+            )
+
+        remaining = (
+            db.query(UploadedFile).filter(UploadedFile.file_id == file_id).first()
+        )
+        assert remaining is None
+        assert not file_path.exists()
+        mock_cleanup_metadata.assert_awaited_once_with(
+            collection_name=collection_name,
+            user=user,
+        )
+    finally:
+        db.close()
 
 
 def test_kb_ingest_surfaces_restore_failure_on_upload_abort(test_env, temp_uploads):
@@ -1199,7 +1411,6 @@ def test_kb_delete_physical_cleanup_failure_preserves_uploaded_file_records(
     db.close()
 
     with (
-        patch("xagent.web.api.kb._check_can_delete_collection"),
         patch("xagent.web.api.kb.get_vector_index_store") as mock_get_vector_store,
         patch(
             "xagent.web.api.kb.delete_collection_physical_dir"
@@ -1414,11 +1625,16 @@ def test_kb_rename_physical_directory_rename(test_env, temp_uploads):
         patch(
             "xagent.core.tools.core.RAG_tools.management.collections._list_table_names"
         ) as mock_list_tables,
-        patch("xagent.web.api.kb.get_vector_index_store") as mock_store_factory,
+        patch(
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_vector_index_store"
+        ) as mock_store_factory,
+        patch(
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_metadata_store"
+        ) as mock_get_metadata_store,
         patch("xagent.web.api.kb.rename_collection_storage") as mock_rename_storage,
         patch(
-            "xagent.core.tools.core.RAG_tools.management.status.load_ingestion_status"
-        ) as mock_load_status,
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_ingestion_status_store"
+        ) as mock_get_status_store,
     ):
         mock_list_tables.return_value = []
 
@@ -1427,6 +1643,9 @@ def test_kb_rename_physical_directory_rename(test_env, temp_uploads):
         mock_store.list_document_records.return_value = []  # No documents
         mock_store.rename_collection_data.return_value = []  # No warnings
         mock_store_factory.return_value = mock_store
+        mock_metadata_store = mock_get_metadata_store.return_value
+        mock_metadata_store.list_collection_config_owner_ids.return_value = set()
+        mock_metadata_store.rename_collection = AsyncMock()
 
         # Mock rename_collection_storage to simulate success
         mock_rename_result = MagicMock()
@@ -1437,7 +1656,7 @@ def test_kb_rename_physical_directory_rename(test_env, temp_uploads):
         mock_rename_storage.return_value = mock_rename_result
 
         # Mock ingestion status operations
-        mock_load_status.return_value = []
+        mock_get_status_store.return_value.rename_collection_status.return_value = []
 
         # Attempt rename
         response = client.put(
@@ -1468,11 +1687,16 @@ def test_kb_rename_normalizes_padded_collection_names(test_env, temp_uploads):
         patch(
             "xagent.core.tools.core.RAG_tools.management.collections._list_table_names"
         ) as mock_list_tables,
-        patch("xagent.web.api.kb.get_vector_index_store") as mock_store_factory,
+        patch(
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_vector_index_store"
+        ) as mock_store_factory,
+        patch(
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_metadata_store"
+        ) as mock_get_metadata_store,
         patch("xagent.web.api.kb.rename_collection_storage") as mock_rename_storage,
         patch(
-            "xagent.core.tools.core.RAG_tools.management.status.load_ingestion_status"
-        ) as mock_load_status,
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_ingestion_status_store"
+        ) as mock_get_status_store,
     ):
         mock_list_tables.return_value = []
 
@@ -1481,6 +1705,9 @@ def test_kb_rename_normalizes_padded_collection_names(test_env, temp_uploads):
         mock_store.list_document_records.return_value = []
         mock_store.rename_collection_data.return_value = []
         mock_store_factory.return_value = mock_store
+        mock_metadata_store = mock_get_metadata_store.return_value
+        mock_metadata_store.list_collection_config_owner_ids.return_value = set()
+        mock_metadata_store.rename_collection = AsyncMock()
 
         # Mock rename_collection_storage
         mock_rename_result = MagicMock()
@@ -1490,7 +1717,7 @@ def test_kb_rename_normalizes_padded_collection_names(test_env, temp_uploads):
         mock_rename_result.new_collection_dir = None
         mock_rename_storage.return_value = mock_rename_result
 
-        mock_load_status.return_value = []
+        mock_get_status_store.return_value.rename_collection_status.return_value = []
 
         response = client.put(
             "/api/kb/collections/%20%20team%20notes%20%20",
@@ -1525,11 +1752,16 @@ def test_kb_rename_accepts_unicode_collection_name(test_env, temp_uploads):
         patch(
             "xagent.core.tools.core.RAG_tools.management.collections._list_table_names"
         ) as mock_list_tables,
-        patch("xagent.web.api.kb.get_vector_index_store") as mock_store_factory,
+        patch(
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_vector_index_store"
+        ) as mock_store_factory,
+        patch(
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_metadata_store"
+        ) as mock_get_metadata_store,
         patch("xagent.web.api.kb.rename_collection_storage") as mock_rename_storage,
         patch(
-            "xagent.core.tools.core.RAG_tools.management.status.load_ingestion_status"
-        ) as mock_load_status,
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_ingestion_status_store"
+        ) as mock_get_status_store,
     ):
         mock_list_tables.return_value = []
 
@@ -1538,6 +1770,9 @@ def test_kb_rename_accepts_unicode_collection_name(test_env, temp_uploads):
         mock_store.list_document_records.return_value = []
         mock_store.rename_collection_data.return_value = []
         mock_store_factory.return_value = mock_store
+        mock_metadata_store = mock_get_metadata_store.return_value
+        mock_metadata_store.list_collection_config_owner_ids.return_value = set()
+        mock_metadata_store.rename_collection = AsyncMock()
 
         # Mock rename_collection_storage
         mock_rename_result = MagicMock()
@@ -1547,7 +1782,7 @@ def test_kb_rename_accepts_unicode_collection_name(test_env, temp_uploads):
         mock_rename_result.new_collection_dir = None
         mock_rename_storage.return_value = mock_rename_result
 
-        mock_load_status.return_value = []
+        mock_get_status_store.return_value.rename_collection_status.return_value = []
 
         response = client.put(
             f"/api/kb/collections/{quote(old_collection_name, safe='')}",
@@ -1744,24 +1979,32 @@ def test_delete_after_rename_not_denied_by_stale_list_collections(test_env):
     with (
         patch("xagent.web.api.kb._ensure_collection_access", new_callable=AsyncMock),
         patch("xagent.web.api.kb._list_collections_with_retry") as mock_retry,
-        patch("xagent.web.api.kb.get_vector_index_store") as mock_store_factory,
+        patch(
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_vector_index_store"
+        ) as mock_store_factory,
+        patch(
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_metadata_store"
+        ) as mock_get_metadata_store,
         patch("xagent.web.api.kb.rename_collection_storage") as mock_rename_storage,
         patch(
-            "xagent.core.tools.core.RAG_tools.management.status.load_ingestion_status"
-        ) as mock_load_status,
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_ingestion_status_store"
+        ) as mock_get_status_store,
     ):
         mock_retry.side_effect = [stale_old_only, stale_old_only]
         mock_store = MagicMock()
         mock_store.list_document_records.return_value = []
         mock_store.rename_collection_data.return_value = []
         mock_store_factory.return_value = mock_store
+        mock_metadata_store = mock_get_metadata_store.return_value
+        mock_metadata_store.list_collection_config_owner_ids.return_value = set()
+        mock_metadata_store.rename_collection = AsyncMock()
         mock_rename_result = MagicMock()
         mock_rename_result.status = "not_found"
         mock_rename_result.error = None
         mock_rename_result.old_collection_dir = None
         mock_rename_result.new_collection_dir = None
         mock_rename_storage.return_value = mock_rename_result
-        mock_load_status.return_value = []
+        mock_get_status_store.return_value.rename_collection_status.return_value = []
 
         rename_resp = client.put(
             f"/api/kb/collections/{old_collection_name}",
@@ -1839,24 +2082,32 @@ def test_delete_after_rename_not_blocked_when_new_collection_is_visible(test_env
     with (
         patch("xagent.web.api.kb._ensure_collection_access", new_callable=AsyncMock),
         patch("xagent.web.api.kb._list_collections_with_retry") as mock_retry,
-        patch("xagent.web.api.kb.get_vector_index_store") as mock_store_factory,
+        patch(
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_vector_index_store"
+        ) as mock_store_factory,
+        patch(
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_metadata_store"
+        ) as mock_get_metadata_store,
         patch("xagent.web.api.kb.rename_collection_storage") as mock_rename_storage,
         patch(
-            "xagent.core.tools.core.RAG_tools.management.status.load_ingestion_status"
-        ) as mock_load_status,
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_ingestion_status_store"
+        ) as mock_get_status_store,
     ):
         mock_retry.side_effect = [visible_old, visible_old]
         mock_store = MagicMock()
         mock_store.list_document_records.return_value = []
         mock_store.rename_collection_data.return_value = []
         mock_store_factory.return_value = mock_store
+        mock_metadata_store = mock_get_metadata_store.return_value
+        mock_metadata_store.list_collection_config_owner_ids.return_value = set()
+        mock_metadata_store.rename_collection = AsyncMock()
         mock_rename_result = MagicMock()
         mock_rename_result.status = "not_found"
         mock_rename_result.error = None
         mock_rename_result.old_collection_dir = None
         mock_rename_result.new_collection_dir = None
         mock_rename_storage.return_value = mock_rename_result
-        mock_load_status.return_value = []
+        mock_get_status_store.return_value.rename_collection_status.return_value = []
 
         rename_resp = client.put(
             f"/api/kb/collections/{old_collection_name}",
@@ -1924,6 +2175,7 @@ def test_kb_ingest_setup_failure_cleans_new_collection_config(test_env, temp_upl
     app, headers, _user, _ = test_env
     client = TestClient(app, raise_server_exceptions=False)
     metadata_store = MagicMock()
+    metadata_store.get_collection_config = AsyncMock(return_value=None)
     metadata_store.save_collection_config = AsyncMock()
     metadata_store.delete_collection_metadata = AsyncMock(
         return_value={"metadata_rows": 0, "config_rows": 1}
@@ -1953,6 +2205,174 @@ def test_kb_ingest_setup_failure_cleans_new_collection_config(test_env, temp_upl
         is_admin=False,
         delete_orphaned_metadata=True,
     )
+
+
+def test_kb_ingest_existing_collection_failure_restores_previous_config(
+    test_env, temp_uploads
+) -> None:
+    """Failed direct ingest should not replace an existing collection config."""
+    from xagent.core.tools.core.RAG_tools.core.schemas import IngestionResult
+
+    app, headers, _user, _ = test_env
+    client = TestClient(app, raise_server_exceptions=False)
+    metadata_store = MagicMock()
+    metadata_store.get_collection_config = AsyncMock(return_value='{"chunk_size":111}')
+    metadata_store.save_collection_config = AsyncMock()
+    metadata_store.delete_collection_metadata = AsyncMock()
+    metadata_store.delete_collection = AsyncMock()
+
+    with (
+        patch(
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_metadata_store",
+            return_value=metadata_store,
+        ),
+        patch("xagent.web.api.kb._ensure_collection_access", new_callable=AsyncMock),
+        patch("xagent.web.api.kb.get_collection_sync", return_value=MagicMock()),
+        patch(
+            "xagent.web.api.kb._upsert_uploaded_file_record",
+            return_value=MagicMock(file_id="file-1"),
+        ),
+        patch(
+            "xagent.web.api.kb.run_document_ingestion",
+            return_value=IngestionResult(
+                status="error",
+                doc_id="doc-1",
+                parse_hash="",
+                failed_step="parse_document",
+                message="ingestion failed",
+            ),
+        ),
+        patch("xagent.web.api.kb._rollback_failed_ingestion", new_callable=AsyncMock),
+    ):
+        response = client.post(
+            "/api/kb/ingest",
+            files={"file": ("test_doc.txt", b"content", "text/plain")},
+            data={"collection": "existing_collection", "chunk_size": "2048"},
+            headers=headers,
+        )
+
+    assert response.status_code == 500
+    assert metadata_store.save_collection_config.await_count == 2
+    restore_call = metadata_store.save_collection_config.await_args_list[-1]
+    assert restore_call.kwargs == {
+        "collection": "existing_collection",
+        "config_json": '{"chunk_size":111}',
+        "user_id": 1,
+    }
+    metadata_store.delete_collection_metadata.assert_not_awaited()
+
+
+def test_kb_ingest_config_only_collection_failure_restores_previous_config(
+    test_env, temp_uploads
+) -> None:
+    """A saved config without collection metadata is still pre-existing state."""
+    from xagent.core.tools.core.RAG_tools.core.schemas import IngestionResult
+
+    app, headers, _user, _ = test_env
+    client = TestClient(app, raise_server_exceptions=False)
+    metadata_store = MagicMock()
+    metadata_store.get_collection_config = AsyncMock(return_value='{"chunk_size":111}')
+    metadata_store.save_collection_config = AsyncMock()
+    metadata_store.delete_collection_metadata = AsyncMock()
+    metadata_store.delete_collection = AsyncMock()
+
+    with (
+        patch(
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_metadata_store",
+            return_value=metadata_store,
+        ),
+        patch("xagent.web.api.kb._ensure_collection_access", new_callable=AsyncMock),
+        patch("xagent.web.api.kb.get_collection_sync", side_effect=ValueError("new")),
+        patch(
+            "xagent.web.api.kb._upsert_uploaded_file_record",
+            return_value=MagicMock(file_id="file-1"),
+        ),
+        patch(
+            "xagent.web.api.kb.run_document_ingestion",
+            return_value=IngestionResult(
+                status="error",
+                doc_id="doc-1",
+                parse_hash="",
+                failed_step="parse_document",
+                message="ingestion failed",
+            ),
+        ),
+        patch("xagent.web.api.kb._rollback_failed_ingestion", new_callable=AsyncMock),
+    ):
+        response = client.post(
+            "/api/kb/ingest",
+            files={"file": ("test_doc.txt", b"content", "text/plain")},
+            data={"collection": "config_only_collection", "chunk_size": "2048"},
+            headers=headers,
+        )
+
+    assert response.status_code == 500
+    assert metadata_store.save_collection_config.await_count == 2
+    restore_call = metadata_store.save_collection_config.await_args_list[-1]
+    assert restore_call.kwargs == {
+        "collection": "config_only_collection",
+        "config_json": '{"chunk_size":111}',
+        "user_id": 1,
+    }
+    metadata_store.delete_collection_metadata.assert_not_awaited()
+    metadata_store.delete_collection.assert_awaited_once_with("config_only_collection")
+
+
+@pytest.mark.asyncio
+async def test_failed_ingest_config_restore_skips_delete_when_snapshot_unknown() -> (
+    None
+):
+    """Unknown prior config state should not be treated as an empty old config."""
+    from xagent.web.api.kb import (
+        _CollectionConfigSnapshot,
+        _restore_collection_config_after_failed_ingest,
+    )
+
+    facade = MagicMock()
+    facade.save_collection_config = AsyncMock()
+    facade.delete_collection_metadata = AsyncMock()
+
+    with patch("xagent.web.api.kb._get_api_compatibility_facade", return_value=facade):
+        await _restore_collection_config_after_failed_ingest(
+            snapshot=_CollectionConfigSnapshot(
+                collection="existing_collection",
+                user_id=1,
+                previous_config_json=None,
+                previous_config_known=False,
+                saved=True,
+            ),
+            collection_existed_before=True,
+            context="unit-test",
+        )
+
+    facade.save_collection_config.assert_not_awaited()
+    facade.delete_collection_metadata.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_collection_config_snapshot_failure_does_not_save_new_config() -> None:
+    """If the old config cannot be read, failed ingests must not leave a new config."""
+    from xagent.web.api.kb import _save_collection_config_with_snapshot
+
+    metadata_store = MagicMock()
+    metadata_store.get_collection_config = AsyncMock(side_effect=RuntimeError("boom"))
+    metadata_store.save_collection_config = AsyncMock()
+    user = MagicMock(id=1)
+
+    with patch(
+        "xagent.core.tools.core.RAG_tools.storage.factory.get_metadata_store",
+        return_value=metadata_store,
+    ):
+        snapshot = await _save_collection_config_with_snapshot(
+            collection="existing_collection",
+            config_json='{"chunk_size":2048}',
+            user=user,
+            context="unit-test",
+        )
+
+    assert snapshot.saved is False
+    assert snapshot.previous_config_known is False
+    metadata_store.save_collection_config.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -2003,6 +2423,7 @@ def test_kb_ingest_cloud_all_failures_clean_new_collection_config(test_env) -> N
     app, headers, _user, _ = test_env
     client = TestClient(app)
     metadata_store = MagicMock()
+    metadata_store.get_collection_config = AsyncMock(return_value=None)
     metadata_store.save_collection_config = AsyncMock()
     metadata_store.delete_collection_metadata = AsyncMock(
         return_value={"metadata_rows": 0, "config_rows": 1}
@@ -2035,6 +2456,186 @@ def test_kb_ingest_cloud_all_failures_clean_new_collection_config(test_env) -> N
         is_admin=False,
         delete_orphaned_metadata=True,
     )
+
+
+def test_kb_ingest_cloud_existing_collection_all_failures_restores_config(
+    test_env,
+) -> None:
+    """All-failed cloud ingest should restore config for existing collections."""
+    app, headers, _user, _ = test_env
+    client = TestClient(app)
+    metadata_store = MagicMock()
+    metadata_store.get_collection_config = AsyncMock(return_value='{"chunk_size":222}')
+    metadata_store.save_collection_config = AsyncMock()
+    metadata_store.delete_collection_metadata = AsyncMock()
+
+    with (
+        patch(
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_metadata_store",
+            return_value=metadata_store,
+        ),
+        patch("xagent.web.api.kb._ensure_collection_access", new_callable=AsyncMock),
+        patch("xagent.web.api.kb.get_collection_sync", return_value=MagicMock()),
+    ):
+        response = client.post(
+            "/api/kb/ingest-cloud",
+            json={
+                "collection": "cloud_existing_collection",
+                "chunk_size": 2048,
+                "files": [
+                    {
+                        "provider": "unsupported",
+                        "fileId": "file-1",
+                        "fileName": "doc.txt",
+                    }
+                ],
+            },
+            headers=headers,
+        )
+
+    assert response.status_code == 200
+    assert response.json()[0]["status"] == "error"
+    assert metadata_store.save_collection_config.await_count == 2
+    restore_call = metadata_store.save_collection_config.await_args_list[-1]
+    assert restore_call.kwargs == {
+        "collection": "cloud_existing_collection",
+        "config_json": '{"chunk_size":222}',
+        "user_id": 1,
+    }
+    metadata_store.delete_collection_metadata.assert_not_awaited()
+
+
+def test_kb_ingest_cloud_config_only_collection_all_failures_restores_config(
+    test_env,
+) -> None:
+    """Cloud ingest must restore config-only collection state on failure."""
+    app, headers, _user, _ = test_env
+    client = TestClient(app)
+    metadata_store = MagicMock()
+    metadata_store.get_collection_config = AsyncMock(return_value='{"chunk_size":333}')
+    metadata_store.save_collection_config = AsyncMock()
+    metadata_store.delete_collection_metadata = AsyncMock()
+    metadata_store.delete_collection = AsyncMock()
+
+    with (
+        patch(
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_metadata_store",
+            return_value=metadata_store,
+        ),
+        patch("xagent.web.api.kb._ensure_collection_access", new_callable=AsyncMock),
+        patch("xagent.web.api.kb.get_collection_sync", side_effect=ValueError("new")),
+    ):
+        response = client.post(
+            "/api/kb/ingest-cloud",
+            json={
+                "collection": "cloud_config_only_collection",
+                "chunk_size": 2048,
+                "files": [
+                    {
+                        "provider": "unsupported",
+                        "fileId": "file-1",
+                        "fileName": "doc.txt",
+                    }
+                ],
+            },
+            headers=headers,
+        )
+
+    assert response.status_code == 200
+    assert response.json()[0]["status"] == "error"
+    assert metadata_store.save_collection_config.await_count == 2
+    restore_call = metadata_store.save_collection_config.await_args_list[-1]
+    assert restore_call.kwargs == {
+        "collection": "cloud_config_only_collection",
+        "config_json": '{"chunk_size":333}',
+        "user_id": 1,
+    }
+    metadata_store.delete_collection_metadata.assert_not_awaited()
+    metadata_store.delete_collection.assert_awaited_once_with(
+        "cloud_config_only_collection"
+    )
+
+
+def test_kb_ingest_cloud_existing_collection_mixed_failure_restores_config(
+    test_env, temp_uploads
+) -> None:
+    """A mixed cloud ingest should not commit new config for an existing collection."""
+    from xagent.core.tools.core.RAG_tools.core.schemas import IngestionResult
+
+    app, headers, _user, _ = test_env
+    client = TestClient(app)
+    metadata_store = MagicMock()
+    metadata_store.get_collection_config = AsyncMock(return_value='{"chunk_size":444}')
+    metadata_store.save_collection_config = AsyncMock()
+    metadata_store.delete_collection_metadata = AsyncMock()
+
+    class _FakeFilesService:
+        def get_media(self, fileId: str):
+            return {"fileId": fileId}
+
+    class _FakeDriveService:
+        def files(self):
+            return _FakeFilesService()
+
+    class _FakeDownloader:
+        def __init__(self, fh, request_file):
+            self._fh = fh
+
+        def next_chunk(self):
+            self._fh.write(b"cloud-content")
+            return None, True
+
+    with (
+        patch(
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_metadata_store",
+            return_value=metadata_store,
+        ),
+        patch("xagent.web.api.kb._ensure_collection_access", new_callable=AsyncMock),
+        patch("xagent.web.api.kb.get_collection_sync", return_value=MagicMock()),
+        patch("xagent.web.api.kb.get_google_credentials", return_value=object()),
+        patch("xagent.web.api.kb.build", return_value=_FakeDriveService()),
+        patch("xagent.web.api.kb.MediaIoBaseDownload", _FakeDownloader),
+        patch(
+            "xagent.web.api.kb.run_document_ingestion",
+            return_value=IngestionResult(
+                status="success",
+                doc_id="cloud-doc-id",
+                parse_hash="hash",
+                message="success",
+            ),
+        ),
+    ):
+        response = client.post(
+            "/api/kb/ingest-cloud",
+            json={
+                "collection": "cloud_existing_collection",
+                "chunk_size": 2048,
+                "files": [
+                    {
+                        "provider": "google-drive",
+                        "fileId": "drive-file-1",
+                        "fileName": "doc.txt",
+                    },
+                    {
+                        "provider": "unsupported",
+                        "fileId": "file-2",
+                        "fileName": "bad.txt",
+                    },
+                ],
+            },
+            headers=headers,
+        )
+
+    assert response.status_code == 200
+    assert [item["status"] for item in response.json()] == ["success", "error"]
+    assert metadata_store.save_collection_config.await_count == 2
+    restore_call = metadata_store.save_collection_config.await_args_list[-1]
+    assert restore_call.kwargs == {
+        "collection": "cloud_existing_collection",
+        "config_json": '{"chunk_size":444}',
+        "user_id": 1,
+    }
+    metadata_store.delete_collection_metadata.assert_not_awaited()
 
 
 def test_kb_ingest_cloud_denied_request_does_not_persist_collection_config(
@@ -2359,6 +2960,57 @@ def test_kb_ingest_cloud_surfaces_restore_failure_on_download_error(
     assert "Failed to fully roll back cloud ingest" in data[0]["message"]
 
 
+def test_kb_ingest_cloud_returns_download_failure_after_restore_success(
+    test_env, temp_uploads
+):
+    """Cloud download failures should stop after restoring the local backup."""
+
+    app, headers, _user, _ = test_env
+    client = TestClient(app)
+
+    class _FakeFilesService:
+        def get_media(self, fileId: str):
+            return {"fileId": fileId}
+
+    class _FakeDriveService:
+        def files(self):
+            return _FakeFilesService()
+
+    class _FailingDownloader:
+        def __init__(self, fh, request_file):
+            self._fh = fh
+
+        def next_chunk(self):
+            raise RuntimeError("download blew up")
+
+    with (
+        patch("xagent.web.api.kb.get_google_credentials", return_value=object()),
+        patch("xagent.web.api.kb.build", return_value=_FakeDriveService()),
+        patch("xagent.web.api.kb.MediaIoBaseDownload", _FailingDownloader),
+        patch("xagent.web.api.kb.run_document_ingestion") as run_ingestion,
+    ):
+        response = client.post(
+            "/api/kb/ingest-cloud",
+            json={
+                "collection": "cloud_coll",
+                "files": [
+                    {
+                        "provider": "google-drive",
+                        "fileId": "drive-file-1",
+                        "fileName": "cloud.csv",
+                    }
+                ],
+            },
+            headers=headers,
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data[0]["status"] == "error"
+    assert "Download failed: download blew up" in data[0]["message"]
+    run_ingestion.assert_not_called()
+
+
 def test_kb_ingest_cloud_surfaces_restore_failure_on_unexpected_error(
     test_env, temp_uploads
 ):
@@ -2552,7 +3204,9 @@ def test_check_documents_exist_prefers_uploaded_file_filename(test_env, temp_upl
         ),
     ]
 
-    with patch("xagent.web.api.kb.get_vector_index_store") as mock_get_store:
+    with patch(
+        "xagent.core.tools.core.RAG_tools.storage.factory.get_vector_index_store"
+    ) as mock_get_store:
         mock_store = mock_get_store.return_value
         mock_store.list_document_records.return_value = records
         response = client.post(
@@ -2571,7 +3225,9 @@ def test_check_documents_exist_accepts_unicode_collection_name(test_env, temp_up
 
     collection_name = "示例知识库集合"
 
-    with patch("xagent.web.api.kb.get_vector_index_store") as mock_get_store:
+    with patch(
+        "xagent.core.tools.core.RAG_tools.storage.factory.get_vector_index_store"
+    ) as mock_get_store:
         mock_store = mock_get_store.return_value
         mock_store.list_document_records.return_value = []
 
@@ -2613,8 +3269,13 @@ def test_check_documents_exist_rejects_path_traversal_in_collection_name(
         assert "Invalid collection name" in response.json()["detail"]
 
 
-def test_delete_document_prefers_file_id_and_cleans_orphan_file(test_env, temp_uploads):
+def test_delete_document_prefers_file_id_and_cleans_orphan_file(
+    test_env, temp_uploads, monkeypatch, tmp_path
+):
     """Deleting by file_id should remove the UploadedFile row when it becomes orphaned."""
+    monkeypatch.setenv("XAGENT_FILE_STORAGE_URI", (tmp_path / "objects").as_uri())
+    get_file_storage.cache_clear()
+
     app, headers, user, TestingSessionLocal = test_env
     client = TestClient(app)
 
@@ -2632,11 +3293,16 @@ def test_delete_document_prefers_file_id_and_cleans_orphan_file(test_env, temp_u
             file_size=7,
         )
         session.add(file_record)
+        session.flush()
+        ManagedFileRef(file_record).sync_to_durable()
         session.commit()
         session.refresh(file_record)
         target_file_id = str(file_record.file_id)
+        storage_key = str(file_record.storage_key)
     finally:
         session.close()
+
+    assert get_file_storage().exists(storage_key)
 
     document_state = [
         DocumentRecord(
@@ -2657,7 +3323,7 @@ def test_delete_document_prefers_file_id_and_cleans_orphan_file(test_env, temp_u
         patch("xagent.web.api.kb._ensure_collection_access", new_callable=AsyncMock),
         patch("xagent.web.api.kb.get_vector_index_store", return_value=mock_store),
         patch(
-            "xagent.core.tools.core.RAG_tools.management.collections.delete_document",
+            "xagent.web.api.kb.delete_document",
             side_effect=_fake_delete_document,
         ),
     ):
@@ -2668,6 +3334,7 @@ def test_delete_document_prefers_file_id_and_cleans_orphan_file(test_env, temp_u
 
     assert response.status_code == 200
     assert not file_path.exists()
+    assert not get_file_storage().exists(storage_key)
 
     session = TestingSessionLocal()
     try:
@@ -2746,7 +3413,7 @@ def test_delete_document_keeps_uploaded_file_when_other_docs_still_reference_it(
             side_effect=_fake_list_documents_for_user,
         ),
         patch(
-            "xagent.core.tools.core.RAG_tools.management.collections.delete_document",
+            "xagent.web.api.kb.delete_document",
             side_effect=_fake_delete_document,
         ),
     ):
@@ -2839,7 +3506,7 @@ def test_delete_document_skips_orphan_cleanup_when_remaining_doc_refresh_fails(
             side_effect=_fake_list_documents_for_user,
         ),
         patch(
-            "xagent.core.tools.core.RAG_tools.management.collections.delete_document",
+            "xagent.web.api.kb.delete_document",
             side_effect=_fake_delete_document,
         ),
     ):
@@ -2929,7 +3596,7 @@ def test_delete_document_does_not_cleanup_uploaded_file_when_delete_fails(
             side_effect=_fake_list_documents_for_user,
         ),
         patch(
-            "xagent.core.tools.core.RAG_tools.management.collections.delete_document",
+            "xagent.web.api.kb.delete_document",
             side_effect=_fake_delete_document,
         ),
     ):
@@ -2987,7 +3654,7 @@ def test_delete_document_accepts_unicode_collection_name(test_env, temp_uploads)
         patch("xagent.web.api.kb._ensure_collection_access", new_callable=AsyncMock),
         patch("xagent.web.api.kb.get_vector_index_store", return_value=mock_store),
         patch(
-            "xagent.core.tools.core.RAG_tools.management.collections.delete_document",
+            "xagent.web.api.kb.delete_document",
             side_effect=_fake_delete_document,
         ),
     ):
@@ -3115,7 +3782,7 @@ def test_delete_document_by_doc_id_disambiguates_duplicate_filename(
         patch("xagent.web.api.kb._ensure_collection_access", new_callable=AsyncMock),
         patch("xagent.web.api.kb.get_vector_index_store", return_value=mock_store),
         patch(
-            "xagent.core.tools.core.RAG_tools.management.collections.delete_document",
+            "xagent.web.api.kb.delete_document",
             side_effect=_fake_delete_document,
         ),
     ):
@@ -3172,7 +3839,7 @@ def test_delete_document_by_file_id_survives_degraded_document_listing(
         ),
         patch("xagent.web.api.kb.get_vector_index_store", return_value=mock_store),
         patch(
-            "xagent.core.tools.core.RAG_tools.management.collections.delete_document",
+            "xagent.web.api.kb.delete_document",
             side_effect=_fake_delete_document,
         ),
     ):
@@ -3234,7 +3901,7 @@ def test_delete_document_by_file_id_prefers_documents_table_doc_id(
         ),
         patch("xagent.web.api.kb.get_vector_index_store", return_value=mock_store),
         patch(
-            "xagent.core.tools.core.RAG_tools.management.collections.delete_document",
+            "xagent.web.api.kb.delete_document",
             side_effect=_fake_delete_document,
         ),
     ):
@@ -3313,7 +3980,7 @@ def test_delete_document_without_file_id_does_not_resurface_on_collection_refres
         patch("xagent.web.api.kb._ensure_collection_access", new_callable=AsyncMock),
         patch("xagent.web.api.kb.get_vector_index_store", return_value=mock_store),
         patch(
-            "xagent.core.tools.core.RAG_tools.management.collections.delete_document",
+            "xagent.web.api.kb.delete_document",
             side_effect=_fake_delete_document,
         ),
     ):
@@ -3401,7 +4068,7 @@ def test_delete_document_without_file_id_preserves_uploaded_file_on_cleanup_refr
         patch("xagent.web.api.kb._ensure_collection_access", new_callable=AsyncMock),
         patch("xagent.web.api.kb.get_vector_index_store", return_value=mock_store),
         patch(
-            "xagent.core.tools.core.RAG_tools.management.collections.delete_document",
+            "xagent.web.api.kb.delete_document",
             side_effect=_fake_delete_document,
         ),
     ):
@@ -3477,7 +4144,7 @@ def test_delete_document_by_file_id_resolves_doc_id_via_list_documents(
         patch("xagent.web.api.kb.get_vector_index_store", return_value=mock_store),
         patch("xagent.web.api.kb.list_documents", return_value=doc_list),
         patch(
-            "xagent.core.tools.core.RAG_tools.management.collections.delete_document",
+            "xagent.web.api.kb.delete_document",
             side_effect=_fake_delete_document,
         ),
     ):
@@ -3531,7 +4198,7 @@ def test_delete_document_by_doc_id_succeeds_without_uploaded_file_record(
         patch("xagent.web.api.kb.get_vector_index_store", return_value=mock_store),
         patch("xagent.web.api.kb.list_documents", return_value=doc_list),
         patch(
-            "xagent.core.tools.core.RAG_tools.management.collections.delete_document",
+            "xagent.web.api.kb.delete_document",
             side_effect=_fake_delete_document,
         ),
     ):
@@ -3600,9 +4267,7 @@ def test_delete_document_by_file_id_rejects_unlinked_basename_match(
         patch("xagent.web.api.kb._ensure_collection_access", new_callable=AsyncMock),
         patch("xagent.web.api.kb.get_vector_index_store", return_value=mock_store),
         patch("xagent.web.api.kb.list_documents", return_value=doc_list),
-        patch(
-            "xagent.core.tools.core.RAG_tools.management.collections.delete_document"
-        ) as mock_delete_document,
+        patch("xagent.web.api.kb.delete_document") as mock_delete_document,
     ):
         response = client.delete(
             f"/api/kb/collections/demo/documents/shared-name.txt?file_id={target_file_id}",
@@ -3676,7 +4341,7 @@ def test_delete_document_reports_cleanup_commit_failure(test_env, temp_uploads):
             ),
             patch("xagent.web.api.kb.get_vector_index_store", return_value=mock_store),
             patch(
-                "xagent.core.tools.core.RAG_tools.management.collections.delete_document",
+                "xagent.web.api.kb.delete_document",
                 side_effect=_fake_delete_document,
             ),
         ):
@@ -3730,9 +4395,7 @@ def test_delete_document_rejects_mismatched_doc_id_and_file_id(test_env, temp_up
             "xagent.web.api.kb.list_documents",
             side_effect=RuntimeError("documents unavailable"),
         ),
-        patch(
-            "xagent.core.tools.core.RAG_tools.management.collections.delete_document"
-        ) as mock_delete_document,
+        patch("xagent.web.api.kb.delete_document") as mock_delete_document,
     ):
         response = client.delete(
             (
@@ -3747,8 +4410,13 @@ def test_delete_document_rejects_mismatched_doc_id_and_file_id(test_env, temp_up
     mock_delete_document.assert_not_called()
 
 
-def test_kb_delete_collection_cleans_file_id_managed_root_file(test_env, temp_uploads):
+def test_kb_delete_collection_cleans_file_id_managed_root_file(
+    test_env, temp_uploads, monkeypatch, tmp_path
+):
     """Collection delete should clean orphan UploadedFile rows even outside collection dir."""
+    monkeypatch.setenv("XAGENT_FILE_STORAGE_URI", (tmp_path / "objects").as_uri())
+    get_file_storage.cache_clear()
+
     app, headers, user, TestingSessionLocal = test_env
     client = TestClient(app)
 
@@ -3766,11 +4434,16 @@ def test_kb_delete_collection_cleans_file_id_managed_root_file(test_env, temp_up
             file_size=7,
         )
         session.add(file_record)
+        session.flush()
+        ManagedFileRef(file_record).sync_to_durable()
         session.commit()
         session.refresh(file_record)
         target_file_id = str(file_record.file_id)
+        storage_key = str(file_record.storage_key)
     finally:
         session.close()
+
+    assert get_file_storage().exists(storage_key)
 
     document_state = [
         DocumentRecord(
@@ -3788,9 +4461,13 @@ def test_kb_delete_collection_cleans_file_id_managed_root_file(test_env, temp_up
     with (
         patch("xagent.web.api.kb._ensure_collection_access", new_callable=AsyncMock),
         patch("xagent.web.api.kb.get_vector_index_store") as mock_get_store,
+        patch(
+            "xagent.core.tools.core.RAG_tools.storage.factory.get_vector_index_store"
+        ) as mock_factory_get_store,
         patch("xagent.web.api.kb.delete_collection") as mock_delete,
     ):
         mock_store = mock_get_store.return_value
+        mock_factory_get_store.return_value = mock_store
         mock_store.list_document_records.side_effect = _fake_list_documents_for_user
         from xagent.core.tools.core.RAG_tools.core.schemas import (
             CollectionOperationResult,
@@ -3811,6 +4488,7 @@ def test_kb_delete_collection_cleans_file_id_managed_root_file(test_env, temp_up
 
     assert response.status_code == 200
     assert not file_path.exists()
+    assert not get_file_storage().exists(storage_key)
 
     session = TestingSessionLocal()
     try:

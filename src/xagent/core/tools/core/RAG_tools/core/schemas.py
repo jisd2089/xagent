@@ -11,7 +11,10 @@ from enum import Enum
 from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from ......config import get_web_crawl_tls_impersonate
+from .web_url_utils import validate_and_normalize_web_url
 
 # Default configurable values (avoid scattering literals)
 DEFAULT_SEARCH_TOP_K: int = 5
@@ -265,6 +268,13 @@ class RegisterDocumentRequest(BaseModel):
         None, description="UploadedFile file_id for stable file association"
     )
     source_path: str = Field(..., description="Absolute path to uploaded file")
+    metadata_source_path: Optional[str] = Field(
+        None,
+        description=(
+            "Canonical source path to store in metadata when ingestion reads from "
+            "a temporary immutable input path"
+        ),
+    )
 
     file_type: Optional[str] = Field(
         None, description="File type (auto-detected if not provided)"
@@ -1056,6 +1066,11 @@ class IngestionConfig(BaseModel):
         description="Override embedding request timeout (seconds).",
     )
 
+    rerank_model_id: Optional[str] = Field(
+        default=None,
+        description="Bound rerank model ID for this collection (user-scoped).",
+    )
+
     parse_method: ParseMethod = Field(
         ParseMethod.DEFAULT, description="Parse method used during parse_document step"
     )
@@ -1302,6 +1317,19 @@ class CollectionInfo(BaseModel):
         description="Vector dimension. Auto-detected from embedding model.",
     )
 
+    # 🎯 Optional binding: Rerank model configuration
+    # When set, the search pipeline will rerank retrieved chunks using
+    # this model. When None, no rerank stage is added — this is what
+    # decides whether knowledge_search performs reranking for this KB.
+    rerank_model_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Optional rerank model ID (registered in the model hub). When set, "
+            "knowledge_search adds a rerank stage for this collection. "
+            "When None, no rerank is performed."
+        ),
+    )
+
     # 📊 Statistics
     documents: int = Field(0, description="Total number of registered documents")
     processed_documents: int = Field(
@@ -1431,7 +1459,7 @@ class CollectionInfo(BaseModel):
         """
         import json
 
-        data = self.model_dump(exclude={"document_metadata"})
+        data = self.model_dump(exclude={"document_metadata", "rerank_model_id"})
 
         # Serialize complex types to JSON strings for LanceDB
         data["extra_metadata"] = json.dumps(data["extra_metadata"])
@@ -1595,6 +1623,366 @@ class DocumentListResult(BaseModel):
     )
 
 
+class DocumentRecordDetail(BaseModel):
+    """Semantic record for a single ``documents`` table row.
+
+    This is the handle-owned, lean document-row type introduced in #508. It
+    mirrors the full ``documents`` table schema (see LanceDB schema_manager) so
+    it can be mapped losslessly back to the legacy ``list[dict]`` shape used by
+    the file-level ``get_document`` / ``list_documents`` helpers.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    collection: str = Field(..., description="Collection name for data isolation")
+    doc_id: str = Field(..., description="Document identifier inside the collection")
+    file_id: Optional[str] = Field(
+        None, description="UploadedFile file_id for stable file association"
+    )
+    source_path: Optional[str] = Field(
+        None, description="Stored (metadata) source path for the document"
+    )
+    file_type: Optional[str] = Field(None, description="Detected document file type")
+    content_hash: Optional[str] = Field(
+        None, description="SHA256 hash of the document content"
+    )
+    uploaded_at: Optional[datetime] = Field(None, description="Upload timestamp")
+    title: Optional[str] = Field(None, description="Optional document title")
+    language: Optional[str] = Field(None, description="Optional document language")
+    user_id: Optional[int] = Field(
+        None, description="Owner user id for multi-tenancy (None for legacy data)"
+    )
+
+    @classmethod
+    def from_row(cls, row: Dict[str, Any]) -> "DocumentRecordDetail":
+        """Build a record from a raw ``documents`` table row dict.
+
+        Pandas null sentinels (``None``, ``NaN``, ``NaT``) are normalized to
+        ``None``; ``user_id`` is coerced to a plain Python ``int``.
+        """
+
+        def clean(value: Any) -> Any:
+            if value is None:
+                return None
+            try:
+                # NaN / NaT are never equal to themselves.
+                if value != value:  # noqa: PLR0124
+                    return None
+            except Exception:  # noqa: BLE001 - non-comparable values are kept
+                pass
+            return value
+
+        user_id = clean(row.get("user_id"))
+        return cls(
+            collection=clean(row.get("collection")),
+            doc_id=clean(row.get("doc_id")),
+            file_id=clean(row.get("file_id")),
+            source_path=clean(row.get("source_path")),
+            file_type=clean(row.get("file_type")),
+            content_hash=clean(row.get("content_hash")),
+            uploaded_at=clean(row.get("uploaded_at")),
+            title=clean(row.get("title")),
+            language=clean(row.get("language")),
+            user_id=int(user_id) if user_id is not None else None,
+        )
+
+    def to_legacy_dict(self) -> Dict[str, Any]:
+        """Return the legacy raw-row dict shape (all ``documents`` columns)."""
+        return {
+            "collection": self.collection,
+            "doc_id": self.doc_id,
+            "file_id": self.file_id,
+            "source_path": self.source_path,
+            "file_type": self.file_type,
+            "content_hash": self.content_hash,
+            "uploaded_at": self.uploaded_at,
+            "title": self.title,
+            "language": self.language,
+            "user_id": self.user_id,
+        }
+
+
+class DocumentRecordListResult(BaseModel):
+    """Lean result for handle-level document-row listings (#508).
+
+    Distinct from :class:`DocumentListResult` (which aggregates parse/chunk/
+    embedding/status counts); this carries only ``documents`` rows and maps
+    back to the legacy ``list[dict]`` shape.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    documents: List[DocumentRecordDetail] = Field(
+        default_factory=list, description="Document rows for the collection"
+    )
+    total_count: int = Field(..., ge=0, description="Number of document rows returned")
+
+    def to_legacy_dicts(self) -> List[Dict[str, Any]]:
+        """Return the legacy ``list[dict]`` shape for all rows."""
+        return [record.to_legacy_dict() for record in self.documents]
+
+
+def _clean_row_value(value: Any) -> Any:
+    """Normalize pandas null sentinels (``None``, ``NaN``, ``NaT``) to ``None``."""
+    if value is None:
+        return None
+    try:
+        # NaN / NaT are never equal to themselves.
+        if value != value:  # noqa: PLR0124
+            return None
+    except Exception:  # noqa: BLE001 - non-comparable values are kept
+        pass
+    return value
+
+
+class ParseRecordDetail(BaseModel):
+    """Lossless semantic record for a single ``parses`` table row (#509).
+
+    Mirrors the full ``parses`` schema (see LanceDB schema_manager) so a
+    snapshot can be restored by re-upserting every column exactly.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    collection: str = Field(..., description="Collection name for data isolation")
+    doc_id: str = Field(..., description="Document identifier inside the collection")
+    parse_hash: str = Field(..., description="Hash identifying the parse version")
+    parser: Optional[str] = Field(None, description="Parser identifier and version")
+    created_at: Optional[datetime] = Field(None, description="Parse creation timestamp")
+    params_json: Optional[str] = Field(
+        None, description="JSON-encoded parse parameters"
+    )
+    parsed_content: Optional[str] = Field(
+        None, description="JSON-encoded parsed paragraphs"
+    )
+    user_id: Optional[int] = Field(
+        None, description="Owner user id for multi-tenancy (None for legacy data)"
+    )
+
+    @classmethod
+    def from_row(cls, row: Dict[str, Any]) -> "ParseRecordDetail":
+        """Build a record from a raw ``parses`` table row dict."""
+        user_id = _clean_row_value(row.get("user_id"))
+        return cls(
+            collection=_clean_row_value(row.get("collection")),
+            doc_id=_clean_row_value(row.get("doc_id")),
+            parse_hash=_clean_row_value(row.get("parse_hash")),
+            parser=_clean_row_value(row.get("parser")),
+            created_at=_clean_row_value(row.get("created_at")),
+            params_json=_clean_row_value(row.get("params_json")),
+            parsed_content=_clean_row_value(row.get("parsed_content")),
+            user_id=int(user_id) if user_id is not None else None,
+        )
+
+    def to_legacy_dict(self) -> Dict[str, Any]:
+        """Return the legacy raw-row dict shape (all ``parses`` columns)."""
+        return {
+            "collection": self.collection,
+            "doc_id": self.doc_id,
+            "parse_hash": self.parse_hash,
+            "parser": self.parser,
+            "created_at": self.created_at,
+            "params_json": self.params_json,
+            "parsed_content": self.parsed_content,
+            "user_id": self.user_id,
+        }
+
+
+class ChunkRecordDetail(BaseModel):
+    """Lossless semantic record for a single ``chunks`` table row (#509).
+
+    Mirrors the full ``chunks`` schema so a snapshot can be restored by
+    re-upserting every column exactly.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    collection: str = Field(..., description="Collection name for data isolation")
+    doc_id: str = Field(..., description="Document identifier inside the collection")
+    parse_hash: str = Field(..., description="Parse version the chunk belongs to")
+    chunk_id: str = Field(..., description="Chunk identifier")
+    index: int = Field(0, description="Chunk ordinal index within the document")
+    text: Optional[str] = Field(None, description="Chunk text content")
+    page_number: Optional[int] = Field(None, description="Source page number")
+    section: Optional[str] = Field(None, description="Source section label")
+    anchor: Optional[str] = Field(None, description="Source anchor")
+    json_path: Optional[str] = Field(None, description="Structured-document json path")
+    chunk_hash: Optional[str] = Field(None, description="Per-chunk content hash")
+    config_hash: Optional[str] = Field(None, description="Chunk configuration hash")
+    created_at: Optional[datetime] = Field(None, description="Chunk creation timestamp")
+    metadata: Optional[str] = Field(None, description="Serialized chunk metadata")
+    user_id: Optional[int] = Field(
+        None, description="Owner user id for multi-tenancy (None for legacy data)"
+    )
+
+    @classmethod
+    def from_row(cls, row: Dict[str, Any]) -> "ChunkRecordDetail":
+        """Build a record from a raw ``chunks`` table row dict."""
+        index = _clean_row_value(row.get("index"))
+        page_number = _clean_row_value(row.get("page_number"))
+        user_id = _clean_row_value(row.get("user_id"))
+        return cls(
+            collection=_clean_row_value(row.get("collection")),
+            doc_id=_clean_row_value(row.get("doc_id")),
+            parse_hash=_clean_row_value(row.get("parse_hash")),
+            chunk_id=_clean_row_value(row.get("chunk_id")),
+            index=int(index) if index is not None else 0,
+            text=_clean_row_value(row.get("text")),
+            page_number=int(page_number) if page_number is not None else None,
+            section=_clean_row_value(row.get("section")),
+            anchor=_clean_row_value(row.get("anchor")),
+            json_path=_clean_row_value(row.get("json_path")),
+            chunk_hash=_clean_row_value(row.get("chunk_hash")),
+            config_hash=_clean_row_value(row.get("config_hash")),
+            created_at=_clean_row_value(row.get("created_at")),
+            metadata=_clean_row_value(row.get("metadata")),
+            user_id=int(user_id) if user_id is not None else None,
+        )
+
+    def to_legacy_dict(self) -> Dict[str, Any]:
+        """Return the legacy raw-row dict shape (all ``chunks`` columns)."""
+        return {
+            "collection": self.collection,
+            "doc_id": self.doc_id,
+            "parse_hash": self.parse_hash,
+            "chunk_id": self.chunk_id,
+            "index": self.index,
+            "text": self.text,
+            "page_number": self.page_number,
+            "section": self.section,
+            "anchor": self.anchor,
+            "json_path": self.json_path,
+            "chunk_hash": self.chunk_hash,
+            "config_hash": self.config_hash,
+            "created_at": self.created_at,
+            "metadata": self.metadata,
+            "user_id": self.user_id,
+        }
+
+
+class ChunkRecordSnapshot(BaseModel):
+    """Ordered set of ``chunks`` rows captured for rollback restore (#509)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    chunks: List[ChunkRecordDetail] = Field(
+        default_factory=list, description="Chunk rows in their original order"
+    )
+
+    @classmethod
+    def from_rows(cls, rows: List[Dict[str, Any]]) -> "ChunkRecordSnapshot":
+        """Build a snapshot from raw ``chunks`` table row dicts."""
+        return cls(chunks=[ChunkRecordDetail.from_row(row) for row in rows])
+
+    def to_legacy_dicts(self) -> List[Dict[str, Any]]:
+        """Return the legacy ``list[dict]`` shape for all chunk rows."""
+        return [chunk.to_legacy_dict() for chunk in self.chunks]
+
+
+class EmbeddingRecordDetail(BaseModel):
+    """Lossless semantic record for a single ``embeddings_{model_tag}`` row (#510).
+
+    Mirrors the full embeddings schema (vector included) so a snapshot can be
+    restored by re-upserting every column exactly.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    collection: str = Field(..., description="Collection name for data isolation")
+    doc_id: str = Field(..., description="Document identifier inside the collection")
+    chunk_id: str = Field(..., description="Chunk identifier the vector belongs to")
+    parse_hash: str = Field(..., description="Parse version the embedding belongs to")
+    model: str = Field(..., description="Embedding model name")
+    vector: List[float] = Field(
+        default_factory=list, description="Embedding vector values"
+    )
+    vector_dimension: Optional[int] = Field(None, description="Stored vector dimension")
+    text: Optional[str] = Field(None, description="Original chunk text")
+    chunk_hash: Optional[str] = Field(None, description="Per-chunk content hash")
+    created_at: Optional[datetime] = Field(
+        None, description="Embedding creation timestamp"
+    )
+    metadata: Optional[str] = Field(None, description="Serialized chunk metadata")
+    user_id: Optional[int] = Field(
+        None, description="Owner user id for multi-tenancy (None for legacy data)"
+    )
+
+    @classmethod
+    def from_row(cls, row: Dict[str, Any]) -> "EmbeddingRecordDetail":
+        """Build a record from a raw ``embeddings_{model_tag}`` table row dict."""
+        vector_dimension = _clean_row_value(row.get("vector_dimension"))
+        user_id = _clean_row_value(row.get("user_id"))
+        vector = _clean_row_value(row.get("vector"))
+        return cls(
+            collection=_clean_row_value(row.get("collection")),
+            doc_id=_clean_row_value(row.get("doc_id")),
+            chunk_id=_clean_row_value(row.get("chunk_id")),
+            parse_hash=_clean_row_value(row.get("parse_hash")),
+            model=_clean_row_value(row.get("model")),
+            vector=[float(v) for v in vector] if vector is not None else [],
+            vector_dimension=(
+                int(vector_dimension) if vector_dimension is not None else None
+            ),
+            text=_clean_row_value(row.get("text")),
+            chunk_hash=_clean_row_value(row.get("chunk_hash")),
+            created_at=_clean_row_value(row.get("created_at")),
+            metadata=_clean_row_value(row.get("metadata")),
+            user_id=int(user_id) if user_id is not None else None,
+        )
+
+    def to_legacy_dict(self) -> Dict[str, Any]:
+        """Return the legacy raw-row dict shape (all embeddings columns)."""
+        return {
+            "collection": self.collection,
+            "doc_id": self.doc_id,
+            "chunk_id": self.chunk_id,
+            "parse_hash": self.parse_hash,
+            "model": self.model,
+            "vector": self.vector,
+            "vector_dimension": self.vector_dimension,
+            "text": self.text,
+            "chunk_hash": self.chunk_hash,
+            "created_at": self.created_at,
+            "metadata": self.metadata,
+            "user_id": self.user_id,
+        }
+
+
+class EmbeddingRecordSnapshot(BaseModel):
+    """Ordered set of embedding rows captured for rollback restore (#510).
+
+    Embeddings live in per-model tables (``embeddings_{model_tag}``), so the
+    snapshot also exposes per-model-tag grouping for restore: each group routes
+    to its own ``upsert_embeddings`` call.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    records: List[EmbeddingRecordDetail] = Field(
+        default_factory=list, description="Embedding rows in their original order"
+    )
+
+    @classmethod
+    def from_rows(cls, rows: List[Dict[str, Any]]) -> "EmbeddingRecordSnapshot":
+        """Build a snapshot from raw ``embeddings_{model_tag}`` table row dicts."""
+        return cls(records=[EmbeddingRecordDetail.from_row(row) for row in rows])
+
+    def to_legacy_dicts(self) -> List[Dict[str, Any]]:
+        """Return the legacy ``list[dict]`` shape for all embedding rows."""
+        return [record.to_legacy_dict() for record in self.records]
+
+    def group_by_model_tag(self) -> Dict[str, List[Dict[str, Any]]]:
+        """Group legacy row dicts by ``to_model_tag(model)`` for restore."""
+        from ..LanceDB.model_tag_utils import to_model_tag
+
+        grouped: Dict[str, List[Dict[str, Any]]] = {}
+        for record in self.records:
+            grouped.setdefault(to_model_tag(record.model), []).append(
+                record.to_legacy_dict()
+            )
+        return grouped
+
+
 class DocumentOperationResult(BaseModel):
     """Standard response for document management operations."""
 
@@ -1746,10 +2134,11 @@ class WebCrawlConfig(BaseModel):
         ),
     )
     tls_impersonate: Optional[str] = Field(
-        default=None,
+        default_factory=get_web_crawl_tls_impersonate,
         description=(
             "TLS fingerprint to impersonate via curl_cffi. "
-            "Defaults to None (plain httpx -- fastest, but no WAF bypass). "
+            "Defaults to XAGENT_WEB_CRAWL_TLS_IMPERSONATE when set, otherwise "
+            "None (plain httpx -- fastest, but no WAF bypass). "
             "Pass 'auto' to try a built-in fallback chain in order until one "
             "succeeds. "
             "Pass a specific impersonate spec (e.g. 'safari17_0', 'chrome120') "
@@ -1768,6 +2157,12 @@ class WebCrawlConfig(BaseModel):
         default=True,
         description="Whether to respect robots.txt rules",
     )
+
+    @field_validator("start_url", mode="before")
+    @classmethod
+    def validate_start_url(cls, value: Any) -> str:
+        """Normalize the crawl entrypoint once at the shared config boundary."""
+        return validate_and_normalize_web_url(value)
 
 
 class CrawlResult(BaseModel):
@@ -1841,6 +2236,13 @@ class WebIngestionResult(BaseModel):
     message: str = Field(..., description="Human-readable summary message")
     warnings: List[str] = Field(
         default_factory=list, description="Non-critical warnings"
+    )
+    side_effects_may_remain: bool = Field(
+        default=False,
+        description=(
+            "Whether rollback failed after an ingestion error and persisted "
+            "side effects may still exist"
+        ),
     )
     elapsed_time_ms: int = Field(
         ..., ge=0, description="Total elapsed time in milliseconds"

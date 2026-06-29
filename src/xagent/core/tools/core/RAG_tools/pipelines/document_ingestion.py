@@ -8,7 +8,7 @@ import os
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterator, List, Optional, Tuple
 
 from xagent.core.model.embedding.base import BaseEmbedding
 from xagent.core.model.model import EmbeddingModelConfig
@@ -41,6 +41,7 @@ from ..core.schemas import (
 from ..file.register_document import register_document
 from ..management.collection_manager import (
     initialize_collection_embedding_sync,
+    resolve_effective_embedding_model_sync,
     update_collection_stats_sync,
     validate_document_processing_sync,
 )
@@ -59,6 +60,9 @@ from ..vector_storage.vector_manager import (
     read_chunks_for_embedding,
     write_vectors_to_db,
 )
+
+if TYPE_CHECKING:
+    from ..kb import KBPipelineCompatibilityFacade
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +186,13 @@ def _log_pending_chunks_text_stats(label: str, chunks: List[ChunkForEmbedding]) 
     )
 
 
+def _get_pipeline_compatibility_facade() -> "KBPipelineCompatibilityFacade":
+    """Return the coordinator-owned pipeline compatibility facade."""
+    from ..kb import get_kb_coordinator
+
+    return get_kb_coordinator().pipeline_compatibility
+
+
 def run_document_ingestion(
     collection: str,
     source_path: str,
@@ -191,6 +202,34 @@ def run_document_ingestion(
     user_id: Optional[int] = None,
     is_admin: Optional[bool] = None,
     file_id: Optional[str] = None,
+    metadata_source_path: Optional[str] = None,
+    commit_gate: Optional[Callable[[], None]] = None,
+) -> IngestionResult:
+    """Public entrypoint for LangGraph-compatible ingestion tooling."""
+    return _get_pipeline_compatibility_facade().run_document_ingestion(
+        collection=collection,
+        source_path=source_path,
+        ingestion_config=ingestion_config,
+        progress_manager=progress_manager,
+        user_id=user_id,
+        is_admin=is_admin,
+        file_id=file_id,
+        metadata_source_path=metadata_source_path,
+        commit_gate=commit_gate,
+    )
+
+
+def _run_document_ingestion_impl(
+    collection: str,
+    source_path: str,
+    *,
+    ingestion_config: Optional[IngestionConfigInput] = None,
+    progress_manager: Optional[Any] = None,
+    user_id: Optional[int] = None,
+    is_admin: Optional[bool] = None,
+    file_id: Optional[str] = None,
+    metadata_source_path: Optional[str] = None,
+    commit_gate: Optional[Callable[[], None]] = None,
 ) -> IngestionResult:
     """Public entrypoint for LangGraph-compatible ingestion tooling.
 
@@ -202,11 +241,16 @@ def run_document_ingestion(
         collection: Target collection where the document should be ingested.
         source_path: Filesystem path to the document to ingest.
         ingestion_config: Optional configuration overrides or mapping supplied
-            by external callers.
+            by external callers. ``embedding_model_id`` may be a model-hub ID,
+            a legacy model name/alias, or omitted; ingestion resolves it to the
+            canonical model-hub ID before collection initialization.
         progress_manager: Optional progress manager for tracking.
         user_id: Optional user ID for ownership tracking.
         is_admin: Optional admin override; when omitted, falls back to request scope.
         file_id: Optional UploadedFile file_id for stable file association.
+        metadata_source_path: Optional canonical path to store in metadata while
+            reading from ``source_path``.
+        commit_gate: Optional callback invoked before canonical RAG writes.
 
     Returns:
         IngestionResult: Same contract as :func:`process_document`.
@@ -224,6 +268,8 @@ def run_document_ingestion(
         user_id=user_id,
         is_admin=is_admin,
         file_id=file_id,
+        metadata_source_path=metadata_source_path,
+        commit_gate=commit_gate,
     )
 
 
@@ -484,6 +530,34 @@ def process_document(
     user_id: Optional[int] = None,
     is_admin: bool = False,
     file_id: Optional[str] = None,
+    metadata_source_path: Optional[str] = None,
+    commit_gate: Optional[Callable[[], None]] = None,
+) -> IngestionResult:
+    """Execute the full ingestion pipeline for a document."""
+    return _get_pipeline_compatibility_facade().process_document(
+        collection=collection,
+        source_path=source_path,
+        config=config,
+        progress_manager=progress_manager,
+        user_id=user_id,
+        is_admin=is_admin,
+        file_id=file_id,
+        metadata_source_path=metadata_source_path,
+        commit_gate=commit_gate,
+    )
+
+
+def _process_document_impl(
+    collection: str,
+    source_path: str,
+    *,
+    config: Optional[IngestionConfig] = None,
+    progress_manager: Optional[ProgressManager] = None,
+    user_id: Optional[int] = None,
+    is_admin: bool = False,
+    file_id: Optional[str] = None,
+    metadata_source_path: Optional[str] = None,
+    commit_gate: Optional[Callable[[], None]] = None,
 ) -> IngestionResult:
     """Execute the full ingestion pipeline for a document.
 
@@ -503,6 +577,9 @@ def process_document(
         user_id: Optional user ID for ownership tracking.
         is_admin: Whether the user has admin privileges.
         file_id: Optional UploadedFile file_id for stable file association.
+        metadata_source_path: Optional canonical path to store in metadata while
+            parsing and hashing ``source_path``.
+        commit_gate: Optional callback invoked before canonical RAG writes.
 
     Returns:
         IngestionResult: A structured report describing the pipeline status,
@@ -549,19 +626,12 @@ def process_document(
     chunk_count = 0
     embedding_count = 0
     vector_count = 0
-    current_step = "initialize_collection"
+    current_step = "resolve_embedding_adapter"
     embedding_config: Optional[EmbeddingModelConfig] = None
     embedding_adapter: Optional[BaseEmbedding] = None
     selected_model_id: Optional[str] = None
 
     try:
-        # Step 0: Initialize/validate collection embedding configuration
-        logger.info(
-            "Step initialize_collection started",
-            extra={"collection": collection, "source_path": source_path},
-        )
-        init_start = time.time()
-
         # Validate document processing config against collection settings
         validate_document_processing_sync(
             collection_name=collection,
@@ -570,8 +640,52 @@ def process_document(
             chunking_method=str(cfg.chunk_method),
         )
 
-        # Initialize collection embedding config if needed
-        selected_model_id = cfg.embedding_model_id
+        logger.info(
+            "Step resolve_embedding_adapter started",
+            extra={"collection": collection, "source_path": source_path},
+        )
+        resolve_start = time.time()
+
+        # Resolve the effective embedding model before collection initialization.
+        # This keeps caller aliases such as "text-embedding-v4" from conflicting
+        # with collection metadata stored under the canonical model-hub ID.
+        requested_model_id = cfg.embedding_model_id
+        try:
+            selected_model_id = resolve_effective_embedding_model_sync(
+                collection, requested_model_id
+            )
+        except ValueError:
+            selected_model_id = requested_model_id
+
+        effective_cfg = cfg.model_copy(update={"embedding_model_id": selected_model_id})
+        embedding_config, embedding_adapter = _resolve_embedding_adapter(effective_cfg)
+        selected_model_id = (embedding_config.id or selected_model_id or "").strip()
+        cfg = effective_cfg.model_copy(update={"embedding_model_id": selected_model_id})
+
+        provider = getattr(embedding_config, "model_provider", None)
+        logger.info(
+            "Using embedding model: id=%s, name=%s, provider=%s",
+            selected_model_id,
+            embedding_config.model_name,
+            provider or "unknown",
+        )
+        resolve_elapsed = int((time.time() - resolve_start) * 1000)
+        resolve_step = IngestionStepResult(
+            name="resolve_embedding_adapter",
+            metadata={
+                "model_id": selected_model_id,
+                "elapsed_ms": resolve_elapsed,
+            },
+        )
+
+        # Step 0: Initialize collection embedding config if needed.
+        current_step = "initialize_collection"
+        logger.info(
+            "Step initialize_collection started",
+            extra={"collection": collection, "source_path": source_path},
+        )
+        init_start = time.time()
+
         logger.info(
             "Collection initialization: collection='%s', embedding_model_id='%s'",
             collection,
@@ -597,6 +711,8 @@ def process_document(
                 update_collection_stats_sync(collection_name=collection)
                 logger.info("Created basic metadata for collection '%s'", collection)
 
+        completed_steps.append(resolve_step)
+
         init_elapsed = int((time.time() - init_start) * 1000)
         completed_steps.append(
             IngestionStepResult(
@@ -616,33 +732,6 @@ def process_document(
             },
         )
 
-        current_step = "resolve_embedding_adapter"
-        # Step 0: Resolve embedding adapter
-        # Note: Parameters passed to _resolve_embedding_adapter have priority over environment variables
-        resolve_start = time.time()
-        embedding_config, embedding_adapter = _resolve_embedding_adapter(cfg)
-        selected_model_id = (
-            cfg.embedding_model_id or embedding_config.id or ""
-        ).strip()
-
-        provider = getattr(embedding_config, "model_provider", None)
-        logger.info(
-            "Using embedding model: id=%s, name=%s, provider=%s",
-            selected_model_id,
-            embedding_config.model_name,
-            provider or "unknown",
-        )
-        resolve_elapsed = int((time.time() - resolve_start) * 1000)
-        completed_steps.append(
-            IngestionStepResult(
-                name="resolve_embedding_adapter",
-                metadata={
-                    "model_id": selected_model_id,
-                    "elapsed_ms": resolve_elapsed,
-                },
-            )
-        )
-
         # Step 1: Register document
         current_step = "register_document"
         logger.info(
@@ -651,11 +740,14 @@ def process_document(
         )
         register_start = time.time()
         with progress_tracker.track_step("register_document"):
+            if commit_gate is not None:
+                commit_gate()
             register_result = register_document(
                 collection=collection,
                 source_path=source_path,
                 user_id=user_id,
                 file_id=file_id,
+                metadata_source_path=metadata_source_path,
             )
             doc_id = register_result.get("doc_id")
             if not doc_id:
@@ -717,6 +809,8 @@ def process_document(
             },
         )
         parse_start = time.time()
+        if commit_gate is not None:
+            commit_gate()
         deepdoc_env: Dict[str, Optional[str]] = {}
         if cfg.deepdoc_processing_mode:
             deepdoc_env["DEEPDOC_PROCESSING_MODE"] = cfg.deepdoc_processing_mode
@@ -1022,6 +1116,8 @@ def process_document(
                         write_batch_start = time.time()
                         current_step = "write_vectors_to_db"
                         try:
+                            if commit_gate is not None:
+                                commit_gate()
                             write_response = write_vectors_to_db(
                                 collection=collection,
                                 embeddings=embeddings_batch_async,
@@ -1118,6 +1214,8 @@ def process_document(
                         write_batch_start = time.time()
                         current_step = "write_vectors_to_db"
                         try:
+                            if commit_gate is not None:
+                                commit_gate()
                             write_response = write_vectors_to_db(
                                 collection=collection,
                                 embeddings=embeddings_batch,

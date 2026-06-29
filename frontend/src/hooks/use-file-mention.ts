@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { apiRequest } from "@/lib/api-wrapper";
 import { getApiUrl } from "@/lib/utils";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { createFileChipHTML } from "@/components/chat/FileChip";
 
 export interface FileItem {
@@ -28,29 +28,67 @@ export function useFileMention(
   const [currentQuery, setCurrentQuery] = useState("");
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState<{ top?: number; bottom?: number; left: number } | null>(null);
+  const latestFetchRequestRef = useRef(0);
 
-  const fetchFiles = async () => {
-    if (fileList.length > 0) return;
+  const closePicker = () => {
+    setShowFilePicker(false);
+    setFilteredFiles([]);
+    setSelectedFileIndex(0);
+    setDropdownPosition(null);
+  };
+
+  const resetMention = () => {
+    closePicker();
+    setCurrentQuery("");
+  };
+
+  const fetchFiles = async (query: string) => {
+    const requestId = latestFetchRequestRef.current + 1;
+    latestFetchRequestRef.current = requestId;
+    const params = new URLSearchParams({
+      page: "1",
+      size: "20",
+    });
+    const normalizedQuery = query.trim();
+    if (normalizedQuery) {
+      params.set("search", normalizedQuery);
+    }
+
     setIsLoadingFiles(true);
     try {
-      const response = await apiRequest(`${getApiUrl()}/api/files/list`);
+      const response = await apiRequest(`${getApiUrl()}/api/files/list?${params.toString()}`);
       if (response.ok) {
         const data = await response.json();
+        if (requestId !== latestFetchRequestRef.current) {
+          return;
+        }
         if (data && data.files) {
           setFileList(data.files);
+          setFilteredFiles(data.files);
+          setSelectedFileIndex(0);
+          if (normalizedQuery.length > 0 && data.files.length === 0) {
+            closePicker();
+          }
         }
       }
     } catch (error) {
-      console.error("Failed to load files", error);
-      toast.error(t("files.previewDialog.errors.loadFailed"));
+      if (requestId === latestFetchRequestRef.current) {
+        console.error("Failed to load files", error);
+        toast.error(t("files.previewDialog.errors.loadFailed"));
+      }
     } finally {
-      setIsLoadingFiles(false);
+      if (requestId === latestFetchRequestRef.current) {
+        setIsLoadingFiles(false);
+      }
     }
   };
 
   const checkTrigger = () => {
     const selection = window.getSelection();
-    if (!selection || !selection.rangeCount) return;
+    if (!selection || !selection.rangeCount) {
+      resetMention();
+      return;
+    }
 
     const range = selection.getRangeAt(0);
     const node = range.startContainer;
@@ -66,7 +104,6 @@ export function useFileMention(
         if (!query.includes(' ') && !query.includes('\n')) {
           setCurrentQuery(query);
           setShowFilePicker(true);
-          fetchFiles();
 
           // Calculate position based on the '@' symbol, not the end of the query
           const atRange = document.createRange();
@@ -95,32 +132,25 @@ export function useFileMention(
             setDropdownPosition(pos);
           }
 
-          const lowerQuery = query.toLowerCase();
-          const filtered = fileList.filter(f =>
-            (f.filename.toLowerCase().includes(lowerQuery) ||
-             (f.relative_path && f.relative_path.toLowerCase().includes(lowerQuery)))
-          );
-          setFilteredFiles(filtered);
-          setSelectedFileIndex(0);
           return;
         }
       }
     }
 
-    setShowFilePicker(false);
-    setCurrentQuery("");
+    resetMention();
   };
 
   useEffect(() => {
-    if (showFilePicker && fileList.length > 0) {
-       const lowerQuery = currentQuery.toLowerCase();
-       const filtered = fileList.filter(f =>
-          (f.filename.toLowerCase().includes(lowerQuery) ||
-           (f.relative_path && f.relative_path.toLowerCase().includes(lowerQuery)))
-        );
-        setFilteredFiles(filtered);
+    if (!showFilePicker) {
+      return;
     }
-  }, [fileList, showFilePicker, currentQuery]);
+
+    const timer = window.setTimeout(() => {
+      void fetchFiles(currentQuery);
+    }, 150);
+
+    return () => window.clearTimeout(timer);
+  }, [showFilePicker, currentQuery]);
 
   const moveCursorToEnd = () => {
     const editor = editorRef.current;
@@ -171,8 +201,7 @@ export function useFileMention(
       moveCursorToEnd();
     }
 
-    setShowFilePicker(false);
-    setCurrentQuery("");
+    resetMention();
     onInput();
   };
 
@@ -197,7 +226,7 @@ export function useFileMention(
       }
       if (e.key === "Escape") {
         e.preventDefault();
-        setShowFilePicker(false);
+        resetMention();
         return true;
       }
     }
@@ -214,6 +243,7 @@ export function useFileMention(
     insertFile,
     handleKeyDown,
     checkTrigger,
+    resetMention,
     setShowFilePicker
   };
 }

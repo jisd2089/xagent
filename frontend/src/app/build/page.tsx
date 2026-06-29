@@ -3,19 +3,28 @@
 import React, { useState, useEffect, useRef } from "react"
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
-import { Plus, Bot, Trash2, MessageSquare, Edit, MoreVertical, Globe, Calendar, Clock, Rocket, Sparkles, Settings2, ArrowRight, FileText, Wrench, Database, Plug } from "lucide-react"
+import { Plus, Bot, Trash2, MessageSquare, Edit, MoreVertical, Globe, Calendar, Clock, Rocket, Sparkles, Settings2, ArrowRight, FileText, Wrench, Database, Plug, KeyRound, Webhook } from "lucide-react"
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { DeployAgentDialog, Agent } from "@/components/build/deploy-agent-dialog"
+import { AgentApiKeyDialog } from "@/components/build/agent-api-key-dialog"
+import { AgentTriggersDialog } from "@/components/build/agent-triggers-dialog"
 import { FeatureEmptyState } from "@/components/ui/feature-empty-state"
 import { useI18n } from "@/contexts/i18n-context"
 import { useApp } from "@/contexts/app-context-chat"
 import { useRouter, useSearchParams } from "next/navigation"
 import { apiRequest } from "@/lib/api-wrapper"
 import { getApiUrl } from "@/lib/utils"
+import {
+  canDeleteAgent,
+  canEditAgent,
+  canPublishAgent,
+  canRunAgent,
+  getAgentChatHref,
+} from "@/lib/agent-ui-access"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
-import { toast } from "sonner"
+import { toast } from "@/components/ui/sonner"
 import { getBrandingFromEnv } from "@/lib/branding"
 
 interface LlmModel {
@@ -68,6 +77,8 @@ export default function BuildsPage() {
 
   // Deploy Dialog State
   const [deployAgent, setDeployAgent] = useState<Agent | null>(null)
+  const [apiKeyAgent, setApiKeyAgent] = useState<Agent | null>(null)
+  const [triggersAgent, setTriggersAgent] = useState<Agent | null>(null)
 
   // Check for template parameter and redirect to create page
   useEffect(() => {
@@ -355,8 +366,12 @@ export default function BuildsPage() {
                 {filteredAgents.map((agent) => (
                   <div
                     key={agent.id}
-                    className="group relative flex flex-col justify-between space-y-4 rounded-xl border bg-card p-6 shadow-sm transition-all hover:shadow-md hover:border-primary/50 cursor-pointer"
-                    onClick={() => router.push(`/build/${agent.id}`)}
+                    className={`group relative flex flex-col justify-between space-y-4 rounded-xl border bg-card p-6 shadow-sm transition-all ${canEditAgent(agent) ? "cursor-pointer hover:shadow-md hover:border-primary/50" : "cursor-default"}`}
+                    onClick={() => {
+                      if (canEditAgent(agent)) {
+                        router.push(`/build/${agent.id}`)
+                      }
+                    }}
                   >
                     <div className="flex-1">
                       <div className="space-y-4">
@@ -382,46 +397,83 @@ export default function BuildsPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="absolute right-4 top-1" onClick={(e) => e.stopPropagation()}>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent align="end" className="w-32 p-1" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex flex-col">
-                                <Button
-                                  variant="ghost"
-                                  className="justify-start px-2 py-1.5 h-auto font-normal text-sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    if (agent.status === 'published') {
-                                      handleUnpublish(agent.id)
-                                    } else {
-                                      handlePublish(agent.id)
-                                    }
-                                  }}
-                                >
-                                  <Globe className="mr-2 h-4 w-4" />
-                                  {agent.status === 'published' ? t('builds.list.actions.unpublish') : t('builds.list.actions.publish')}
+                        {(canPublishAgent(agent) || canDeleteAgent(agent) || canEditAgent(agent)) && (
+                          <div className="absolute right-4 top-1" onClick={(e) => e.stopPropagation()}>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                                  <MoreVertical className="h-4 w-4" />
                                 </Button>
-                                <div className="h-px bg-border my-1 mx-1" />
-                                <Button
-                                  variant="ghost"
-                                  className="justify-start px-2 py-1.5 h-auto font-normal text-sm text-destructive hover:text-destructive hover:bg-destructive/10"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDelete(agent.id)
-                                  }}
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  {t('builds.list.actions.delete')}
-                                </Button>
-                              </div>
-                            </PopoverContent>
-                          </Popover>
-                        </div>
+                              </PopoverTrigger>
+                              <PopoverContent align="end" className="w-40 p-1" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex flex-col">
+                                  {canEditAgent(agent) && (
+                                    <Button
+                                      variant="ghost"
+                                      className="justify-start px-2 py-1.5 h-auto font-normal text-sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setApiKeyAgent(agent)
+                                      }}
+                                    >
+                                      <KeyRound className="mr-2 h-4 w-4" />
+                                      {t('builds.list.actions.apiKey') || 'API Key'}
+                                    </Button>
+                                  )}
+                                  {canEditAgent(agent) && (
+                                    <Button
+                                      variant="ghost"
+                                      className="justify-start px-2 py-1.5 h-auto font-normal text-sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setTriggersAgent(agent)
+                                      }}
+                                    >
+                                      <Webhook className="mr-2 h-4 w-4" />
+                                      {t('builds.list.actions.triggers') || 'Triggers'}
+                                    </Button>
+                                  )}
+                                  {canEditAgent(agent) && (canPublishAgent(agent) || canDeleteAgent(agent)) && (
+                                    <div className="h-px bg-border my-1 mx-1" />
+                                  )}
+                                  {canPublishAgent(agent) && (
+                                    <Button
+                                      variant="ghost"
+                                      className="justify-start px-2 py-1.5 h-auto font-normal text-sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        if (agent.status === 'published') {
+                                          handleUnpublish(agent.id)
+                                        } else {
+                                          handlePublish(agent.id)
+                                        }
+                                      }}
+                                    >
+                                      <Globe className="mr-2 h-4 w-4" />
+                                      {agent.status === 'published' ? t('builds.list.actions.unpublish') : t('builds.list.actions.publish')}
+                                    </Button>
+                                  )}
+                                  {canPublishAgent(agent) && canDeleteAgent(agent) && (
+                                    <div className="h-px bg-border my-1 mx-1" />
+                                  )}
+                                  {canDeleteAgent(agent) && (
+                                    <Button
+                                      variant="ghost"
+                                      className="justify-start px-2 py-1.5 h-auto font-normal text-sm text-destructive hover:text-destructive hover:bg-destructive/10"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleDelete(agent.id)
+                                      }}
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      {t('builds.list.actions.delete')}
+                                    </Button>
+                                  )}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                        )}
 
                         <p className="text-sm text-muted-foreground line-clamp-2 mt-4">
                           {agent.description || t('builds.card.noDescription')}
@@ -440,47 +492,57 @@ export default function BuildsPage() {
                           {t('builds.card.updatedAt')}: {formatDate(agent.updated_at || agent.created_at)}
                         </div>
                       </div>
-                      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                        {agent.status === 'published' ? (
-                          <>
-                            <Button
-                              variant="default"
-                              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-                              onClick={() => router.push(`/agent/${agent.id}`)}
-                            >
-                              <MessageSquare className="mr-1.5 h-4 w-4" />
-                              {t('builds.list.actions.chat')}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() => {
-                                setDeployAgent(agent);
-                              }}
-                              title="Deploy"
-                            >
-                              <Rocket className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              className="px-4"
-                              onClick={() => router.push(`/build/${agent.id}`)}
-                            >
-                              <Edit className="mr-1.5 h-4 w-4" />
-                              {t('builds.list.actions.edit')}
-                            </Button>
-                          </>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            className="flex-1 w-full"
-                            onClick={() => router.push(`/build/${agent.id}`)}
-                          >
-                            <Edit className="mr-1.5 h-4 w-4" />
-                            {t('builds.list.actions.edit')}
-                          </Button>
-                        )}
-                      </div>
+                      {(canRunAgent(agent) || canEditAgent(agent)) && (
+                        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                          {agent.status === 'published' ? (
+                            <>
+                              {canRunAgent(agent) && (
+                                <Button
+                                  variant="default"
+                                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                                  onClick={() => router.push(getAgentChatHref(agent))}
+                                >
+                                  <MessageSquare className="mr-1.5 h-4 w-4" />
+                                  {t('builds.list.actions.chat')}
+                                </Button>
+                              )}
+                              {canEditAgent(agent) && (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => {
+                                      setDeployAgent(agent);
+                                    }}
+                                    title="Deploy"
+                                  >
+                                    <Rocket className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    className="px-4"
+                                    onClick={() => router.push(`/build/${agent.id}`)}
+                                  >
+                                    <Edit className="mr-1.5 h-4 w-4" />
+                                    {t('builds.list.actions.edit')}
+                                  </Button>
+                                </>
+                              )}
+                            </>
+                          ) : (
+                            canEditAgent(agent) && (
+                              <Button
+                                variant="outline"
+                                className="flex-1 w-full"
+                                onClick={() => router.push(`/build/${agent.id}`)}
+                              >
+                                <Edit className="mr-1.5 h-4 w-4" />
+                                {t('builds.list.actions.edit')}
+                              </Button>
+                            )
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -522,6 +584,22 @@ export default function BuildsPage() {
           setDeployAgent(updatedAgent)
           setAgents(agents.map(a => a.id === updatedAgent.id ? updatedAgent : a))
         }}
+        onManageApiKey={() => { if (deployAgent) setApiKeyAgent(deployAgent) }}
+        onManageTriggers={() => { if (deployAgent) setTriggersAgent(deployAgent) }}
+      />
+
+      <AgentApiKeyDialog
+        agentId={apiKeyAgent?.id ?? null}
+        agentName={apiKeyAgent?.name}
+        open={apiKeyAgent !== null}
+        onOpenChange={(open) => { if (!open) setApiKeyAgent(null) }}
+      />
+
+      <AgentTriggersDialog
+        agentId={triggersAgent?.id ?? null}
+        agentName={triggersAgent?.name}
+        open={triggersAgent !== null}
+        onOpenChange={(open) => { if (!open) setTriggersAgent(null) }}
       />
 
       <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>

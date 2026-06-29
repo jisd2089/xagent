@@ -254,22 +254,58 @@ class XinferenceLLM(BaseLLM):
         if choices:
             choice = choices[0]
             message = choice.get("message", {})
+            reasoning_content = message.get("reasoning_content") or ""
+            finish_reason = choice.get("finish_reason")
 
             # Check for tool calls
             tool_calls = message.get("tool_calls")
             if tool_calls:
-                return {
+                result: Dict[str, Any] = {
                     "type": "tool_call",
                     "tool_calls": tool_calls,
                     "raw": response_dict,
                 }
+                if reasoning_content:
+                    result["reasoning_content"] = reasoning_content
+                    result["reasoning"] = reasoning_content
+                return result
 
             # Handle text content
             content = message.get("content", "")
             if content:
-                return {
+                result = {
                     "type": "text",
                     "content": content,
+                    "raw": response_dict,
+                }
+                if reasoning_content:
+                    result["reasoning_content"] = reasoning_content
+                    result["reasoning"] = reasoning_content
+                return result
+
+            # Reasoning models (e.g. qwen3-thinking, deepseek-r1) may emit
+            # only ``reasoning_content`` and an empty ``content`` when the
+            # generation is truncated by ``max_tokens`` (finish_reason="length")
+            # before the final answer is produced. Surface the reasoning text
+            # as content so callers (notably the model connection test) do
+            # not treat a truncated-but-otherwise-healthy response as invalid.
+            #
+            # Gate strictly on ``finish_reason == "length"`` and require a
+            # non-whitespace reasoning trace: any other terminal reason
+            # (``"stop"``, ``"content_filter"``, ``None`` …) means the model
+            # claims to be done but produced no final answer, which is a
+            # real failure that callers must see -- promoting the reasoning
+            # trace would silently hide the bug.
+            if (
+                finish_reason == "length"
+                and reasoning_content
+                and reasoning_content.strip()
+            ):
+                return {
+                    "type": "text",
+                    "content": reasoning_content,
+                    "reasoning_content": reasoning_content,
+                    "reasoning": reasoning_content,
                     "raw": response_dict,
                 }
 
@@ -497,8 +533,30 @@ class XinferenceLLM(BaseLLM):
         if tool_calls:
             for tool_call in tool_calls:
                 call_id = tool_call.get("id")
+                index = tool_call.get("index")
+                if not call_id and isinstance(index, int):
+                    for (
+                        existing_id,
+                        existing_tool_call,
+                    ) in accumulated_tool_calls.items():
+                        if existing_tool_call.get("index") == index:
+                            call_id = existing_id
+                            break
+                if not call_id and len(accumulated_tool_calls) == 1:
+                    existing_id, existing_tool_call = next(
+                        iter(accumulated_tool_calls.items())
+                    )
+                    existing_index = existing_tool_call.get("index")
+                    if not isinstance(index, int) or (
+                        isinstance(existing_index, int) and existing_index == index
+                    ):
+                        call_id = existing_id
+                if not call_id:
+                    continue
+
                 if call_id and call_id not in accumulated_tool_calls:
                     accumulated_tool_calls[call_id] = {
+                        "index": index if isinstance(index, int) else None,
                         "id": call_id,
                         "type": tool_call.get("type", "function"),
                         "function": {
@@ -506,17 +564,20 @@ class XinferenceLLM(BaseLLM):
                             "arguments": "",
                         },
                     }
+                elif isinstance(index, int):
+                    accumulated_tool_calls[call_id]["index"] = index
 
-                if call_id:
-                    function = tool_call.get("function", {})
-                    if function.get("name"):
-                        accumulated_tool_calls[call_id]["function"]["name"] = function[
-                            "name"
-                        ]
-                    if function.get("arguments"):
-                        accumulated_tool_calls[call_id]["function"]["arguments"] += (
-                            function["arguments"]
-                        )
+                if tool_call.get("type"):
+                    accumulated_tool_calls[call_id]["type"] = tool_call["type"]
+                function = tool_call.get("function") or {}
+                if function.get("name"):
+                    accumulated_tool_calls[call_id]["function"]["name"] = function[
+                        "name"
+                    ]
+                if "arguments" in function:
+                    accumulated_tool_calls[call_id]["function"]["arguments"] += (
+                        function.get("arguments") or ""
+                    )
 
             # Return accumulated tool calls
             tool_calls_list = list(accumulated_tool_calls.values())

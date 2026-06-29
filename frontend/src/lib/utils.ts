@@ -11,8 +11,49 @@ export function getApiUrl(): string {
   return apiUrl
 }
 
+const PUBLIC_ACCESS_TOKEN_STORAGE_KEY = 'xagent_public_access_token'
+
+export function setPublicAccessToken(token: string | null): void {
+  if (typeof window === 'undefined') return
+  if (!token) {
+    window.sessionStorage.removeItem(PUBLIC_ACCESS_TOKEN_STORAGE_KEY)
+    return
+  }
+  window.sessionStorage.setItem(PUBLIC_ACCESS_TOKEN_STORAGE_KEY, token)
+}
+
+export function getPublicAccessToken(): string | null {
+  if (typeof window === 'undefined') return null
+  return window.sessionStorage.getItem(PUBLIC_ACCESS_TOKEN_STORAGE_KEY)
+}
+
+export function withPublicAccessToken(url: string): string {
+  const publicToken = getPublicAccessToken()
+  if (!publicToken) {
+    return url
+  }
+
+  try {
+    const resolved = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost')
+    if (!resolved.searchParams.has('token')) {
+      resolved.searchParams.set('token', publicToken)
+    }
+    const apiUrl = getApiUrl()
+    if (apiUrl) {
+      return resolved.toString()
+    }
+    return `${resolved.pathname}${resolved.search}${resolved.hash}`
+  } catch {
+    return url
+  }
+}
+
 export function getFilePublicPreviewUrl(fileId: string, apiUrl = getApiUrl()): string {
-  return `${apiUrl}/api/files/public/preview/${encodeURIComponent(fileId)}`
+  return withPublicAccessToken(`${apiUrl}/api/files/public/preview/${encodeURIComponent(fileId)}`)
+}
+
+export function getFilePublicDownloadUrl(fileId: string, apiUrl = getApiUrl()): string {
+  return withPublicAccessToken(`${apiUrl}/api/files/public/download/${encodeURIComponent(fileId)}`)
 }
 
 export function getFileRelativePreviewUrl(
@@ -20,7 +61,12 @@ export function getFileRelativePreviewUrl(
   relativePath: string,
   apiUrl = getApiUrl(),
 ): string {
-  return `${getFilePublicPreviewUrl(fileId, apiUrl)}?relative_path=${encodeURIComponent(relativePath)}`
+  const baseUrl = new URL(getFilePublicPreviewUrl(fileId, apiUrl), typeof window !== 'undefined' ? window.location.origin : 'http://localhost')
+  baseUrl.searchParams.set('relative_path', relativePath)
+  if (apiUrl) {
+    return baseUrl.toString()
+  }
+  return `${baseUrl.pathname}${baseUrl.search}${baseUrl.hash}`
 }
 
 export function getUploadApiUrl(): string {
@@ -168,6 +214,28 @@ export function isMarkdownFile(fileName: string): boolean {
 export function isCsvFile(fileName: string): boolean {
   if (!fileName) return false
   return fileName.toLowerCase().endsWith('.csv')
+}
+
+export function isImageFile(fileName: string): boolean {
+  if (!fileName) return false
+  return /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(fileName)
+}
+
+export function shouldAutoOpenTaskPreview(fileName: string): boolean {
+  if (!fileName) return false
+
+  const lowerName = fileName.toLowerCase()
+  if (isImageFile(lowerName)) return false
+
+  return (
+    lowerName.endsWith('.pdf')
+    || lowerName.endsWith('.ppt')
+    || lowerName.endsWith('.pptx')
+    || lowerName.endsWith('.docx')
+    || lowerName.endsWith('.xlsx')
+    || isCsvFile(lowerName)
+    || isHtmlFile(lowerName)
+  )
 }
 
 export function isToggleableFile(fileName: string): boolean {

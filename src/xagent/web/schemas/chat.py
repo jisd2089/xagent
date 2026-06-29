@@ -60,6 +60,8 @@ class TaskCreateRequest(BaseModel):
     )
     agent_type: Optional[str] = "standard"
     agent_config: Optional[Dict[str, Any]] = None  # Agent-specific configuration
+    is_preview: bool = False  # Backward-compatible alias for is_visible=False.
+    is_visible: bool = True
 
     # Execution mode field
     execution_mode: Optional[str] = None  # "flash", "balanced", "think", or "auto"
@@ -69,7 +71,6 @@ class TaskCreateRequest(BaseModel):
     examples: Optional[List[ExampleItem]] = (
         None  # Process mode: input/output examples (deprecated)
     )
-    sync: bool = False  # If True, execute task synchronously and return result
 
     @model_validator(mode="before")
     @classmethod
@@ -101,11 +102,9 @@ class TaskCreateResponse(BaseModel):
     execution_mode: Optional[str] = None
     channel_id: Optional[int] = None
     channel_name: Optional[str] = None
-    output: Optional[str] = None  # Sync execution result text
-    error: Optional[str] = None  # Sync execution error message
-    trace_id: Optional[str] = None  # Trace ID for cross-system tracing (53AIHub integration)
-    steps: Optional[List[Dict[str, Any]]] = None  # DAG plan steps with tool selection and execution status
-    metrics: Optional[Dict[str, Any]] = None  # Task-level metrics (elapsed, tokens, step_count)
+    agent_id: Optional[int] = None
+    agent_name: Optional[str] = None
+    agent_logo_url: Optional[str] = None
 
 
 class ExecutionStatus(BaseModel):
