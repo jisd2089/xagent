@@ -10,6 +10,160 @@ from typing import Any, Callable
 logger = logging.getLogger(__name__)
 
 
+def _robust_json_loads(raw: str) -> Any:
+    """Parse JSON from LLM output, handling common formatting quirks.
+
+    Handles: markdown code blocks, trailing commas, extra text around
+    the JSON body, and mild truncation (missing closing brackets).
+    """
+    text = raw.strip()
+
+    # 1. Strip markdown code fences (```json / ```)
+    if text.startswith("```"):
+        text = text.removeprefix("```")
+        if text.lower().startswith("json"):
+            text = text[4:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+
+    # 2. Try direct parse first (happy path)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # 3. Remove trailing commas before closing brackets/braces
+    trailing_comma_fixed = _remove_trailing_commas(text)
+    try:
+        return json.loads(trailing_comma_fixed)
+    except json.JSONDecodeError:
+        pass
+
+    # 4. Isolate the outermost JSON object/array from surrounding text
+    extracted = _extract_json_body(text)
+    if extracted is not None:
+        try:
+            return json.loads(extracted)
+        except json.JSONDecodeError:
+            pass
+        cleaned = _remove_trailing_commas(extracted)
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError:
+            pass
+
+    # 5. Repair truncated JSON by appending missing brackets/braces
+    repaired = _repair_truncated_json(text)
+    if repaired is not None:
+        try:
+            return json.loads(repaired)
+        except json.JSONDecodeError:
+            pass
+
+    # All recovery attempts failed; let the caller raise the original error
+    raise json.JSONDecodeError(
+        "Could not parse JSON after all recovery attempts", text, 0
+    )
+
+
+def _remove_trailing_commas(text: str) -> str:
+    """Remove trailing commas before ], }, or end of input."""
+    import re
+
+    return re.sub(r",\s*(\]|})", r"\1", text)
+
+
+def _extract_json_body(text: str) -> str | None:
+    """Find the outermost JSON object or array in text that may have
+    surrounding natural language."""
+    # Try object first
+    start = text.find("{")
+    if start != -1:
+        depth = 0
+        end = -1
+        for i in range(start, len(text)):
+            ch = text[i]
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    end = i
+                    break
+        if end != -1:
+            return text[start : end + 1]
+
+    # Try array
+    start = text.find("[")
+    if start != -1:
+        depth = 0
+        end = -1
+        for i in range(start, len(text)):
+            ch = text[i]
+            if ch == "[":
+                depth += 1
+            elif ch == "]":
+                depth -= 1
+                if depth == 0:
+                    end = i
+                    break
+        if end != -1:
+            return text[start : end + 1]
+
+    return None
+
+
+def _repair_truncated_json(text: str) -> str | None:
+    """Attempt to repair truncated JSON by closing open brackets/braces.
+
+    Only returns a result when the text starts with { or [ and is missing
+    at least one matching closer.
+    """
+    text = text.strip()
+    if not text or text[0] not in "{[":
+        return None
+
+    open_pairs: list[str] = []
+    in_string = False
+    escape = False
+    for ch in text:
+        if escape:
+            escape = False
+            continue
+        if ch == "\\":
+            escape = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch in "{[":
+            open_pairs.append(ch)
+        elif ch in "}]":
+            if open_pairs and (
+                (ch == "}" and open_pairs[-1] == "{")
+                or (ch == "]" and open_pairs[-1] == "[")
+            ):
+                open_pairs.pop()
+
+    if not open_pairs:
+        return None  # Already balanced — truncation is elsewhere
+
+    # Build closing characters in reverse order
+    closers: list[str] = []
+    for opener in reversed(open_pairs):
+        closers.append("}" if opener == "{" else "]")
+
+    # Also close any unclosed strings
+    suffix = ""
+    if in_string:
+        suffix = '"'
+
+    return text.rstrip(", \t\n\r") + suffix + "".join(closers)
+
+
 class PlanValidationError(ValueError):
     """Raised when a DAG execution plan is structurally invalid."""
 
@@ -274,18 +428,21 @@ class LLMPlanGenerator(PlanGenerator):
     async def _call_plan_llm(self, llm, messages, plan_tools):
         """Call LLM for plan generation with graceful degradation.
 
-        Some models (e.g. deepseek-reasoner) do not support tool_choice or
-        thinking parameters.  When the primary call fails, retry without
-        those parameters before giving up.
+        Uses tool_choice="required" to force the model to produce the expected
+        tool call.  Falls back to no tool_choice when the model rejects the
+        parameter, and retries without thinking when the response is missing
+        the expected tool call.
         """
         primary_params: dict[str, Any] = dict(
             messages=messages,
             tools=plan_tools,
-            tool_choice="auto",
+            tool_choice="required",
             thinking={"type": "disabled", "enable": False},
         )
+
+        # Attempt 1: primary call with tool_choice="required"
         try:
-            return await llm.chat(**primary_params)
+            response = await llm.chat(**primary_params)
         except Exception as exc:
             error_text = str(exc).lower()
             degraded = (
@@ -295,13 +452,34 @@ class LLMPlanGenerator(PlanGenerator):
             )
             if not degraded:
                 raise
-
             logger.warning(
                 "Plan generation failed with tool_choice/thinking parameters "
                 "(%s). Retrying without them.",
                 str(exc)[:300],
             )
             return await llm.chat(messages=messages, tools=plan_tools)
+
+        # If the response already has the plan tool call, return it
+        if self._response_has_tool_call(response):
+            return response
+
+        # Attempt 2: model accepted the params but didn't call the tool —
+        # retry without tool_choice and thinking to let the model decide
+        logger.warning(
+            "Primary plan call returned no %s tool call (response preview: %s). "
+            "Retrying without tool_choice/thinking.",
+            self.PLAN_TOOL_NAME,
+            str(response)[:500],
+        )
+        return await llm.chat(messages=messages, tools=plan_tools)
+
+    def _response_has_tool_call(self, response: Any) -> bool:
+        """Return True when the response contains the plan tool call."""
+        for tool_call in self._response_tool_calls(response):
+            function_payload = self._function_payload(tool_call)
+            if function_payload and function_payload.get("name") == self.PLAN_TOOL_NAME:
+                return True
+        return False
 
     def _filter_suggested_tools(
         self,
@@ -470,8 +648,12 @@ class LLMPlanGenerator(PlanGenerator):
         if not isinstance(arguments, str):
             raise TypeError("Tool call arguments must be an object or JSON string.")
         try:
-            payload = json.loads(arguments)
+            payload = _robust_json_loads(arguments)
         except json.JSONDecodeError as exc:
+            logger.error(
+                "DAG plan JSON parse failure. Raw arguments (first 2000 chars): %s",
+                str(arguments)[:2000],
+            )
             raise ValueError("Tool call arguments must be valid JSON.") from exc
         if not isinstance(payload, dict):
             raise TypeError("Tool call arguments must decode to an object.")

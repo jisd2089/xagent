@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.6
 ARG PYTHON_VERSION=3.11
 ARG NODE_VERSION=22
 ARG PYPI_INDEX_URL=""
@@ -9,104 +8,96 @@ ARG APT_MIRROR=""
 ############################
 FROM python:${PYTHON_VERSION}-bookworm AS backend-build
 
-ARG PYPI_INDEX_URL=""
-ARG APT_MIRROR=""
+ARG PYPI_INDEX_URL
+ARG APT_MIRROR
+ARG XAGENT_VERSION
+ARG XAGENT_GIT_COMMIT
 
 WORKDIR /opt/xagent
 
-# Use APT mirror if provided (for faster downloads in China)
-RUN if [ -n "$APT_MIRROR" ]; then \
+# Configure APT mirror + install build dependencies
+# cache mounts: apt package cache & lists persist across rebuilds
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    set -eux; \
+    echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache; \
+    if [ -n "$APT_MIRROR" ]; then \
         sed -i "s|^URIs: http://deb.debian.org/debian$|URIs: $APT_MIRROR|" /etc/apt/sources.list.d/debian.sources \
         && sed -i "s|^URIs: http://deb.debian.org/debian-security|URIs: ${APT_MIRROR}-security|" /etc/apt/sources.list.d/debian.sources \
         || sed -i "s|http://deb.debian.org/debian|$APT_MIRROR|g" /etc/apt/sources.list; \
-    fi
+    fi; \
+    apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=120 update; \
+    apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=120 install -y --no-install-recommends \
+        build-essential ca-certificates gcc git pkg-config python3-dev \
+        curl openssl libssl-dev libffi-dev libcairo2-dev \
+        libgl1 libglib2.0-0 libsm6 libxrender1 libxext6; \
+    git config --global http.version HTTP/1.1; \
+    git config --global http.postBuffer 524288000
 
-RUN apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=120 update \
-    && apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=120 install -y --no-install-recommends \
-    build-essential \
-    ca-certificates \
-    gcc \
-    git \
-    pkg-config \
-    python3-dev \
-    curl \
-    openssl \
-    libssl-dev \
-    libffi-dev \
-    libgl1 \
-    libglib2.0-0 \
-    libsm6 \
-    libxrender1 \
-    libxext6 \
-    && git config --global http.version HTTP/1.1 \
-    && git config --global http.postBuffer 524288000 \
-    && rm -rf /var/lib/apt/lists/*
+# Copy only dependency manifests first (layer cached unless these files change)
+COPY pyproject.toml README.md ./
 
-# Copy dependency files first for better layer caching
-COPY pyproject.toml .
-COPY README.md .
+# Create venv + upgrade pip (cache pip downloads)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m venv /opt/venv \
+    && /opt/venv/bin/pip install --no-cache-dir \
+        ${PYPI_INDEX_URL:+--index-url $PYPI_INDEX_URL --extra-index-url https://pypi.org/simple/} \
+        --upgrade pip
 
-# Copy .git directory for version detection (hatch-vcs)
-COPY .git .git
+# Install torch CPU first (large, rarely changes — cached independently)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    /opt/venv/bin/pip install --no-cache-dir \
+        ${PYPI_INDEX_URL:+--index-url $PYPI_INDEX_URL --extra-index-url https://pypi.org/simple/} \
+        --extra-index-url https://download.pytorch.org/whl/cpu torch
 
-# Create venv and install build tools
-RUN python -m venv /opt/venv \
-    && /opt/venv/bin/python -c "import ssl; print(ssl.OPENSSL_VERSION)" \
-    && /opt/venv/bin/pip install --no-cache-dir ${PYPI_INDEX_URL:+--index-url $PYPI_INDEX_URL} --upgrade pip
+# Pre-download NLTK + tiktoken data BEFORE src (cached when only src changes)
+RUN set -eux; \
+    mkdir -p /root/.cache/deepdoc/nltk_data/tokenizers \
+             /root/.cache/deepdoc/nltk_data/taggers \
+             /root/.cache/deepdoc/tiktoken_cache; \
+    \
+    /opt/venv/bin/python -c "import nltk; \
+        [nltk.download(p, download_dir='/root/.cache/deepdoc/nltk_data') \
+         for p in ['averaged_perceptron_tagger','punkt','punkt_tab']]" || true; \
+    \
+    for pair in "taggers/averaged_perceptron_tagger" "tokenizers/punkt" "tokenizers/punkt_tab"; do \
+        dir="/root/.cache/deepdoc/nltk_data/$(dirname "$pair")"; \
+        name="$(basename "$pair")"; \
+        [ -d "$dir/$name" ] || [ -f "$dir/$name.zip" ] && continue; \
+        mkdir -p "$dir"; \
+        for url in \
+            "https://raw.githubusercontent.com/nltk/nltk_data/gh-pages/packages/$pair.zip" \
+            "https://github.com/nltk/nltk_data/raw/gh-pages/packages/$pair.zip"; do \
+            curl -fSL --retry 5 --retry-delay 10 -o "$dir/$name.zip" "$url" && break; \
+        done; \
+        [ -f "$dir/$name.zip" ] && unzip -o "$dir/$name.zip" -d "$dir/" && rm -f "$dir/$name.zip"; \
+    done; \
+    \
+    for pair in "9b5ad71b2ce5302211f9c61530b329a4922fc6a4:cl100k_base" \
+                "fb54f4051a391c35ac35dd1a1f5ea81ce7db3b77:o200k_base" \
+                "39b5fbb41a82eb1a3a0b8b8d6e2e8e934e1c0f07:p50k_base"; do \
+        hash="${pair%%:*}"; name="${pair##*:}"; \
+        [ -f "/root/.cache/deepdoc/tiktoken_cache/$hash" ] && continue; \
+        curl -fSL --retry 5 --retry-delay 10 --connect-timeout 30 --max-time 300 \
+            -o "/root/.cache/deepdoc/tiktoken_cache/$hash" \
+            "https://openaipublic.blob.core.windows.net/encodings/${name}.tiktoken" || true; \
+    done
 
-# Install torch CPU version first (to avoid CUDA version from docling dependency)
-RUN /opt/venv/bin/pip install --no-cache-dir ${PYPI_INDEX_URL:+--index-url $PYPI_INDEX_URL} --extra-index-url https://download.pytorch.org/whl/cpu torch
-
-# Copy source code (changes frequently)
+# Copy source code (frequently changes — keep after cache-heavy steps)
 COPY src ./src
-COPY alembic.ini .
+COPY alembic.ini ./
 
-# Install app into venv (cached if pyproject.toml + src unchanged)
-RUN /opt/venv/bin/pip install --no-cache-dir ${PYPI_INDEX_URL:+--index-url $PYPI_INDEX_URL} ".[all]"
+# Set version via env var instead of copying .git (saves 100s of MB)
+ENV SETUPTOOLS_SCM_PRETEND_VERSION=${XAGENT_VERSION:-0.0.0}
 
-# Pre-download NLTK data (needed by deepdoc)
-RUN mkdir -p /root/.cache/deepdoc/nltk_data/tokenizers \
-    /root/.cache/deepdoc/nltk_data/taggers \
-    && /opt/venv/bin/python -c "\
-import nltk; \
-nltk.download('averaged_perceptron_tagger', download_dir='/root/.cache/deepdoc/nltk_data'); \
-nltk.download('punkt', download_dir='/root/.cache/deepdoc/nltk_data'); \
-nltk.download('punkt_tab', download_dir='/root/.cache/deepdoc/nltk_data')" \
-    || true \
-    && for pkg_url in \
-         "taggers/averaged_perceptron_tagger" \
-         "tokenizers/punkt" \
-         "tokenizers/punkt_tab"; do \
-         dir="/root/.cache/deepdoc/nltk_data/$(dirname $pkg_url)"; \
-         name="$(basename $pkg_url)"; \
-         if [ ! -d "$dir/$name" ] && [ ! -f "$dir/$name.zip" ]; then \
-           mkdir -p "$dir"; \
-           curl -fSL --retry 5 --retry-delay 10 -o "$dir/$name.zip" \
-             "https://raw.githubusercontent.com/nltk/nltk_data/gh-pages/packages/$pkg_url.zip" \
-           || curl -fSL --retry 5 --retry-delay 10 -o "$dir/$name.zip" \
-             "https://github.com/nltk/nltk_data/raw/gh-pages/packages/$pkg_url.zip" \
-           || true; \
-           if [ -f "$dir/$name.zip" ]; then \
-             unzip -o "$dir/$name.zip" -d "$dir/" && rm -f "$dir/$name.zip"; \
-           fi; \
-         fi; \
-       done
-
-# Pre-download tiktoken BPE data (needed by deepdoc, often times out from China)
-RUN mkdir -p /root/.cache/deepdoc/tiktoken_cache \
-    && for pair in "9b5ad71b2ce5302211f9c61530b329a4922fc6a4:cl100k_base" "fb54f4051a391c35ac35dd1a1f5ea81ce7db3b77:o200k_base" "39b5fbb41a82eb1a3a0b8b8d6e2e8e934e1c0f07:p50k_base"; do \
-         hash="${pair%%:*}"; name="${pair##*:}"; \
-         if [ ! -f "/root/.cache/deepdoc/tiktoken_cache/$hash" ]; then \
-           curl -fSL --retry 5 --retry-delay 10 --connect-timeout 30 --max-time 300 \
-             -o "/root/.cache/deepdoc/tiktoken_cache/$hash" \
-             "https://openaipublic.blob.core.windows.net/encodings/${name}.tiktoken" || true; \
-         fi; \
-       done
-
-# Download deepdoc models (vision ONNX + XGBoost)
-RUN DEEPDOC_NLTK_DATA_DIR=/root/.cache/deepdoc/nltk_data \
-    TIKTOKEN_CACHE_DIR=/root/.cache/deepdoc/tiktoken_cache \
-    /opt/venv/bin/deepdoc-download-models
+# Install app + download deepdoc models (cached when only src changes)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    /opt/venv/bin/pip install --no-cache-dir \
+        ${PYPI_INDEX_URL:+--index-url $PYPI_INDEX_URL --extra-index-url https://pypi.org/simple/} \
+        ".[all]" \
+    && DEEPDOC_NLTK_DATA_DIR=/root/.cache/deepdoc/nltk_data \
+       TIKTOKEN_CACHE_DIR=/root/.cache/deepdoc/tiktoken_cache \
+       /opt/venv/bin/deepdoc-download-models
 
 ############################
 # Runtime
@@ -118,86 +109,73 @@ ARG APT_MIRROR=""
 ARG XAGENT_VERSION=""
 ARG XAGENT_GIT_COMMIT=""
 ARG XAGENT_BUILD_TIME=""
+
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 ENV XAGENT_VERSION=${XAGENT_VERSION}
 ENV XAGENT_GIT_COMMIT=${XAGENT_GIT_COMMIT}
 ENV XAGENT_BUILD_TIME=${XAGENT_BUILD_TIME}
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
 
 WORKDIR /opt/xagent
 
-# Use APT mirror if provided (for faster downloads in China)
-RUN if [ -n "$APT_MIRROR" ]; then \
+# System deps + LibreOffice + CJK fonts + Node.js in one layer
+# cache mounts: apt lists & debs persist across rebuilds
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    set -eux; \
+    echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache; \
+    if [ -n "$APT_MIRROR" ]; then \
         sed -i "s|^URIs: http://deb.debian.org/debian$|URIs: $APT_MIRROR|" /etc/apt/sources.list.d/debian.sources \
         && sed -i "s|^URIs: http://deb.debian.org/debian-security|URIs: ${APT_MIRROR}-security|" /etc/apt/sources.list.d/debian.sources \
         || sed -i "s|http://deb.debian.org/debian|$APT_MIRROR|g" /etc/apt/sources.list; \
-    fi
+    fi; \
+    apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=120 update; \
+    apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=120 install -y --no-install-recommends \
+        ca-certificates curl docker.io gnupg openssl \
+        libreoffice \
+        fonts-noto-cjk fonts-noto-cjk-extra \
+        libglib2.0-0 libsm6 libxrender1 libxext6 libgl1 \
+        libatk1.0-0 libatk-bridge2.0-0 libcups2 libdbus-1-3 libdrm2 \
+        libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 \
+        libxi6 libxtst6 libpango-1.0-0 libcairo2 libgbm1 \
+        libnss3 libnspr4 libxrandr2 libasound2 libpangocairo-1.0-0 \
+        xvfb xauth; \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+        | gpg --dearmor -o /usr/share/keyrings/nodesource.gpg; \
+    echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_VERSION}.x nodistro main" \
+        > /etc/apt/sources.list.d/nodesource.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends nodejs
 
-# System deps + Node.js + LibreOffice + Xvfb (for headless browser/screenshots)
-RUN apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=120 update \
-    && apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=120 install -y --no-install-recommends \
-    ca-certificates \
-    curl \
-    docker.io \
-    gnupg \
-    openssl \
-    libreoffice \
-    libglib2.0-0 \
-    libsm6 \
-    libxrender1 \
-    libxext6 \
-    libgl1 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libdbus-1-3 \
-    libdrm2 \
-    libxkbcommon0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxi6 \
-    libxtst6 \
-    libpango-1.0-0 \
-    libcairo2 \
-    libgbm1 \
-    libnss3 \
-    libnspr4 \
-    libxrandr2 \
-    libasound2 \
-    libpangocairo-1.0-0 \
-    xvfb \
-    xauth \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Node.js
-RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /usr/share/keyrings/nodesource.gpg \
-    && echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_VERSION}.x nodistro main" \
-        > /etc/apt/sources.list.d/nodesource.list \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy entrypoint script early (changes rarely)
+# Copy entrypoint (rarely changes)
 COPY docker/entrypoint.sh /opt/xagent/deploy/entrypoint.sh
+RUN chmod +x /opt/xagent/deploy/entrypoint.sh
 
-# Copy venv + app (exclude .git directory)
+# Copy venv + app from build stage (large, keep high for cache)
 COPY --from=backend-build /opt/venv /opt/venv
 COPY --from=backend-build /opt/xagent/src /opt/xagent/src
 COPY --from=backend-build /opt/xagent/pyproject.toml /opt/xagent/
 COPY --from=backend-build /opt/xagent/alembic.ini /opt/xagent/
 COPY --from=backend-build /root/.cache/deepdoc /root/.cache/deepdoc
 
-# Copy frontend package files for npm tasks (e.g., PPTX generation)
+# Frontend npm deps (separate layer; cached unless package.json changes)
 COPY frontend/package.json frontend/package-lock.json /opt/xagent/frontend/
-RUN cd /opt/xagent/frontend \
+RUN --mount=type=cache,target=/root/.npm,sharing=locked \
+    cd /opt/xagent/frontend \
+    && npm config set registry https://registry.npmmirror.com \
     && npm config set fetch-retries 5 \
     && npm config set fetch-retry-mintimeout 30000 \
-    && npm ci \
-    && npm install -g pptxgenjs@4.0.1 \
-    && python -m playwright install chromium \
-    && chmod +x /opt/xagent/deploy/entrypoint.sh
+    && npm ci
+
+# Global npm packages (rarely changes — separate layer for cache)
+RUN --mount=type=cache,target=/root/.npm,sharing=locked \
+    npm install -g pptxgenjs@4.0.1
+
+# Playwright browser (large download, rarely changes — top layer for cache)
+RUN python -m playwright install chromium
 
 EXPOSE 8000
 ENTRYPOINT ["/opt/xagent/deploy/entrypoint.sh"]

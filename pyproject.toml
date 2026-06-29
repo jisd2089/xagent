@@ -123,6 +123,15 @@ all = [
   "curl_cffi>=0.14.0",
   "chromadb",
   "pymilvus>=2.6.9,<3.0.0",
+  # ppt-master skill dependencies
+  "edge-tts>=7.2.8",
+  "svglib>=1.5.0",
+  "reportlab>=4.0.0",
+  "mammoth>=1.6.0",
+  "markdownify>=0.11.6",
+  "ebooklib>=0.18",
+  "nbconvert>=7.0.0",
+  "flask>=3.0.0",
 ]
 
 [dependency-groups]

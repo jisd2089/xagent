@@ -1,0 +1,2209 @@
+{
+  "source": "D:\\Workspace\\agency-agents-zh",
+  "total_converted": 216,
+  "skills": [
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\academic\\academic-anthropologist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\academic\\anthropologist",
+      "skill_name": "anthropologist",
+      "display_name": "人类学家",
+      "department": "academic",
+      "tags": [
+        "academic"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\academic\\academic-geographer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\academic\\geographer",
+      "skill_name": "geographer",
+      "display_name": "地理学家",
+      "department": "academic",
+      "tags": [
+        "academic"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\academic\\academic-historian.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\academic\\historian",
+      "skill_name": "historian",
+      "display_name": "历史学家",
+      "department": "academic",
+      "tags": [
+        "academic"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\academic\\academic-narratologist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\academic\\narratologist",
+      "skill_name": "narratologist",
+      "display_name": "叙事学家",
+      "department": "academic",
+      "tags": [
+        "academic"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\academic\\academic-psychologist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\academic\\psychologist",
+      "skill_name": "psychologist",
+      "display_name": "心理学家",
+      "department": "academic",
+      "tags": [
+        "academic"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\academic\\academic-study-planner.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\academic\\study-planner",
+      "skill_name": "study-planner",
+      "display_name": "学习规划师",
+      "department": "academic",
+      "tags": [
+        "academic"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\design\\design-brand-guardian.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\design\\brand-guardian",
+      "skill_name": "brand-guardian",
+      "display_name": "品牌守护者",
+      "department": "design",
+      "tags": [
+        "design"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\design\\design-image-prompt-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\design\\image-prompt-engineer",
+      "skill_name": "image-prompt-engineer",
+      "display_name": "图像提示词工程师",
+      "department": "design",
+      "tags": [
+        "design"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\design\\design-inclusive-visuals-specialist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\design\\inclusive-visuals-specialist",
+      "skill_name": "inclusive-visuals-specialist",
+      "display_name": "包容性视觉专家",
+      "department": "design",
+      "tags": [
+        "design"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\design\\design-ui-designer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\design\\ui-designer",
+      "skill_name": "ui-designer",
+      "display_name": "UI 设计师",
+      "department": "design",
+      "tags": [
+        "design"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\design\\design-ux-architect.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\design\\ux-architect",
+      "skill_name": "ux-architect",
+      "display_name": "UX 架构师",
+      "department": "design",
+      "tags": [
+        "design"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\design\\design-ux-researcher.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\design\\ux-researcher",
+      "skill_name": "ux-researcher",
+      "display_name": "UX 研究员",
+      "department": "design",
+      "tags": [
+        "design"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\design\\design-visual-storyteller.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\design\\visual-storyteller",
+      "skill_name": "visual-storyteller",
+      "display_name": "视觉叙事师",
+      "department": "design",
+      "tags": [
+        "design"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\design\\design-whimsy-injector.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\design\\whimsy-injector",
+      "skill_name": "whimsy-injector",
+      "display_name": "趣味注入师",
+      "department": "design",
+      "tags": [
+        "design"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-ai-data-remediation-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\ai-data-remediation-engineer",
+      "skill_name": "ai-data-remediation-engineer",
+      "display_name": "AI 数据修复工程师",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-ai-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\ai-engineer",
+      "skill_name": "ai-engineer",
+      "display_name": "AI 工程师",
+      "department": "engineering",
+      "tags": [
+        "engineering",
+        "ai-ml"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-autonomous-optimization-architect.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\autonomous-optimization-architect",
+      "skill_name": "autonomous-optimization-architect",
+      "display_name": "自主优化架构师",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-backend-architect.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\backend-architect",
+      "skill_name": "backend-architect",
+      "display_name": "后端架构师",
+      "department": "engineering",
+      "tags": [
+        "engineering",
+        "backend",
+        "database"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-cms-developer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\cms-developer",
+      "skill_name": "cms-developer",
+      "display_name": "CMS 开发者",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-code-reviewer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\code-reviewer",
+      "skill_name": "code-reviewer",
+      "display_name": "代码审查员",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-codebase-onboarding-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\codebase-onboarding-engineer",
+      "skill_name": "codebase-onboarding-engineer",
+      "display_name": "代码库入职引导工程师",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-data-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\data-engineer",
+      "skill_name": "data-engineer",
+      "display_name": "数据工程师",
+      "department": "engineering",
+      "tags": [
+        "engineering",
+        "data"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-database-optimizer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\database-optimizer",
+      "skill_name": "database-optimizer",
+      "display_name": "数据库优化师",
+      "department": "engineering",
+      "tags": [
+        "engineering",
+        "database"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-devops-automator.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\devops-automator",
+      "skill_name": "devops-automator",
+      "display_name": "DevOps 自动化师",
+      "department": "engineering",
+      "tags": [
+        "engineering",
+        "devops"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-dingtalk-integration-developer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\dingtalk-integration-developer",
+      "skill_name": "dingtalk-integration-developer",
+      "display_name": "钉钉集成开发工程师",
+      "department": "engineering",
+      "tags": [
+        "engineering",
+        "backend",
+        "security"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-email-intelligence-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\email-intelligence-engineer",
+      "skill_name": "email-intelligence-engineer",
+      "display_name": "邮件智能工程师",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-embedded-firmware-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\embedded-firmware-engineer",
+      "skill_name": "embedded-firmware-engineer",
+      "display_name": "嵌入式固件工程师",
+      "department": "engineering",
+      "tags": [
+        "engineering",
+        "embedded"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-embedded-linux-driver-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\embedded-linux-driver-engineer",
+      "skill_name": "embedded-linux-driver-engineer",
+      "display_name": "嵌入式 Linux 驱动工程师",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-feishu-integration-developer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\feishu-integration-developer",
+      "skill_name": "feishu-integration-developer",
+      "display_name": "飞书集成开发工程师",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-filament-optimization-specialist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\filament-optimization-specialist",
+      "skill_name": "filament-optimization-specialist",
+      "display_name": "Filament 优化专家",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-fpga-digital-design-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\fpga-digital-design-engineer",
+      "skill_name": "fpga-digital-design-engineer",
+      "display_name": "FPGA/ASIC 数字设计工程师",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-frontend-developer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\frontend-developer",
+      "skill_name": "frontend-developer",
+      "display_name": "前端开发者",
+      "department": "engineering",
+      "tags": [
+        "engineering",
+        "frontend",
+        "testing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-git-workflow-master.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\git-workflow-master",
+      "skill_name": "git-workflow-master",
+      "display_name": "Git 工作流大师",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-incident-response-commander.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\incident-response-commander",
+      "skill_name": "incident-response-commander",
+      "display_name": "故障响应指挥官",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-iot-solution-architect.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\iot-solution-architect",
+      "skill_name": "iot-solution-architect",
+      "display_name": "IoT 方案架构师",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-mechanical-design-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\mechanical-design-engineer",
+      "skill_name": "mechanical-design-engineer",
+      "display_name": "机械设计工程师",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-minimal-change-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\minimal-change-engineer",
+      "skill_name": "minimal-change-engineer",
+      "display_name": "最小变更工程师",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-mobile-app-builder.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\mobile-app-builder",
+      "skill_name": "mobile-app-builder",
+      "display_name": "移动应用开发者",
+      "department": "engineering",
+      "tags": [
+        "engineering",
+        "mobile"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-pc-host-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\pc-host-engineer",
+      "skill_name": "pc-host-engineer",
+      "display_name": "上位机工程师",
+      "department": "engineering",
+      "tags": [
+        "engineering",
+        "embedded"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-rapid-prototyper.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\rapid-prototyper",
+      "skill_name": "rapid-prototyper",
+      "display_name": "快速原型师",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-security-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\security-engineer",
+      "skill_name": "security-engineer",
+      "display_name": "安全工程师",
+      "department": "engineering",
+      "tags": [
+        "engineering",
+        "security"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-senior-developer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\senior-developer",
+      "skill_name": "senior-developer",
+      "display_name": "高级开发者",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-software-architect.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\software-architect",
+      "skill_name": "software-architect",
+      "display_name": "软件架构师",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-solidity-smart-contract-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\solidity-smart-contract-engineer",
+      "skill_name": "solidity-smart-contract-engineer",
+      "display_name": "Solidity 智能合约工程师",
+      "department": "engineering",
+      "tags": [
+        "engineering",
+        "blockchain"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-sre.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\sre",
+      "skill_name": "sre",
+      "display_name": "SRE (站点可靠性工程师)",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-technical-writer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\technical-writer",
+      "skill_name": "technical-writer",
+      "display_name": "技术文档工程师",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-threat-detection-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\threat-detection-engineer",
+      "skill_name": "threat-detection-engineer",
+      "display_name": "威胁检测工程师",
+      "department": "engineering",
+      "tags": [
+        "engineering"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-voice-ai-integration-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\voice-ai-integration-engineer",
+      "skill_name": "voice-ai-integration-engineer",
+      "display_name": "语音 AI 集成工程师",
+      "department": "engineering",
+      "tags": [
+        "engineering",
+        "voice"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\engineering\\engineering-wechat-mini-program-developer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\engineering\\wechat-mini-program-developer",
+      "skill_name": "wechat-mini-program-developer",
+      "display_name": "微信小程序开发者",
+      "department": "engineering",
+      "tags": [
+        "engineering",
+        "frontend"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\finance\\finance-bookkeeper-controller.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\finance\\bookkeeper-controller",
+      "skill_name": "bookkeeper-controller",
+      "display_name": "簿记与财务总监",
+      "department": "finance",
+      "tags": [
+        "finance"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\finance\\finance-financial-analyst.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\finance\\financial-analyst",
+      "skill_name": "financial-analyst",
+      "display_name": "财务分析师",
+      "department": "finance",
+      "tags": [
+        "finance"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\finance\\finance-financial-forecaster.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\finance\\financial-forecaster",
+      "skill_name": "financial-forecaster",
+      "display_name": "财务预测分析师",
+      "department": "finance",
+      "tags": [
+        "finance"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\finance\\finance-fpa-analyst.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\finance\\fpa-analyst",
+      "skill_name": "fpa-analyst",
+      "display_name": "FP&A 分析师",
+      "department": "finance",
+      "tags": [
+        "finance"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\finance\\finance-fraud-detector.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\finance\\fraud-detector",
+      "skill_name": "fraud-detector",
+      "display_name": "金融风控分析师",
+      "department": "finance",
+      "tags": [
+        "finance"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\finance\\finance-investment-researcher.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\finance\\investment-researcher",
+      "skill_name": "investment-researcher",
+      "display_name": "投资研究员",
+      "department": "finance",
+      "tags": [
+        "finance"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\finance\\finance-invoice-manager.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\finance\\invoice-manager",
+      "skill_name": "invoice-manager",
+      "display_name": "发票管理专家",
+      "department": "finance",
+      "tags": [
+        "finance"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\finance\\finance-tax-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\finance\\tax-strategist",
+      "skill_name": "tax-strategist",
+      "display_name": "税务策略师",
+      "department": "finance",
+      "tags": [
+        "finance",
+        "legal"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\game-development\\blender\\blender-addon-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\game-development\\blender-addon-engineer",
+      "skill_name": "blender-addon-engineer",
+      "display_name": "Blender 插件工程师",
+      "department": "game-development",
+      "tags": [
+        "game-development"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\game-development\\game-audio-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\game-development\\game-audio-engineer",
+      "skill_name": "game-audio-engineer",
+      "display_name": "游戏音频工程师",
+      "department": "game-development",
+      "tags": [
+        "game-development"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\game-development\\game-designer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\game-development\\game-designer",
+      "skill_name": "game-designer",
+      "display_name": "游戏设计师",
+      "department": "game-development",
+      "tags": [
+        "game-development"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\game-development\\godot\\godot-gameplay-scripter.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\game-development\\godot-gameplay-scripter",
+      "skill_name": "godot-gameplay-scripter",
+      "display_name": "Godot 游戏脚本开发者",
+      "department": "game-development",
+      "tags": [
+        "game-development"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\game-development\\godot\\godot-multiplayer-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\game-development\\godot-multiplayer-engineer",
+      "skill_name": "godot-multiplayer-engineer",
+      "display_name": "Godot 多人游戏工程师",
+      "department": "game-development",
+      "tags": [
+        "game-development"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\game-development\\godot\\godot-shader-developer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\game-development\\godot-shader-developer",
+      "skill_name": "godot-shader-developer",
+      "display_name": "Godot Shader 开发者",
+      "department": "game-development",
+      "tags": [
+        "game-development"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\game-development\\level-designer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\game-development\\level-designer",
+      "skill_name": "level-designer",
+      "display_name": "关卡设计师",
+      "department": "game-development",
+      "tags": [
+        "game-development"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\game-development\\narrative-designer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\game-development\\narrative-designer",
+      "skill_name": "narrative-designer",
+      "display_name": "叙事设计师",
+      "department": "game-development",
+      "tags": [
+        "game-development"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\game-development\\roblox-studio\\roblox-avatar-creator.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\game-development\\roblox-avatar-creator",
+      "skill_name": "roblox-avatar-creator",
+      "display_name": "Roblox 虚拟形象创作者",
+      "department": "game-development",
+      "tags": [
+        "game-development"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\game-development\\roblox-studio\\roblox-experience-designer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\game-development\\roblox-experience-designer",
+      "skill_name": "roblox-experience-designer",
+      "display_name": "Roblox 体验设计师",
+      "department": "game-development",
+      "tags": [
+        "game-development"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\game-development\\roblox-studio\\roblox-systems-scripter.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\game-development\\roblox-systems-scripter",
+      "skill_name": "roblox-systems-scripter",
+      "display_name": "Roblox 系统脚本工程师",
+      "department": "game-development",
+      "tags": [
+        "game-development"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\game-development\\technical-artist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\game-development\\technical-artist",
+      "skill_name": "technical-artist",
+      "display_name": "技术美术",
+      "department": "game-development",
+      "tags": [
+        "game-development"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\game-development\\unity\\unity-architect.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\game-development\\unity-architect",
+      "skill_name": "unity-architect",
+      "display_name": "Unity 架构师",
+      "department": "game-development",
+      "tags": [
+        "game-development"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\game-development\\unity\\unity-editor-tool-developer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\game-development\\unity-editor-tool-developer",
+      "skill_name": "unity-editor-tool-developer",
+      "display_name": "Unity 编辑器工具开发者",
+      "department": "game-development",
+      "tags": [
+        "game-development"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\game-development\\unity\\unity-multiplayer-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\game-development\\unity-multiplayer-engineer",
+      "skill_name": "unity-multiplayer-engineer",
+      "display_name": "Unity 多人游戏工程师",
+      "department": "game-development",
+      "tags": [
+        "game-development"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\game-development\\unity\\unity-shader-graph-artist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\game-development\\unity-shader-graph-artist",
+      "skill_name": "unity-shader-graph-artist",
+      "display_name": "Unity Shader Graph 美术师",
+      "department": "game-development",
+      "tags": [
+        "game-development",
+        "game"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\game-development\\unreal-engine\\unreal-multiplayer-architect.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\game-development\\unreal-multiplayer-architect",
+      "skill_name": "unreal-multiplayer-architect",
+      "display_name": "Unreal 多人游戏架构师",
+      "department": "game-development",
+      "tags": [
+        "game-development"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\game-development\\unreal-engine\\unreal-systems-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\game-development\\unreal-systems-engineer",
+      "skill_name": "unreal-systems-engineer",
+      "display_name": "Unreal 系统工程师",
+      "department": "game-development",
+      "tags": [
+        "game-development"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\game-development\\unreal-engine\\unreal-technical-artist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\game-development\\unreal-technical-artist",
+      "skill_name": "unreal-technical-artist",
+      "display_name": "Unreal 技术美术",
+      "department": "game-development",
+      "tags": [
+        "game-development"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\game-development\\unreal-engine\\unreal-world-builder.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\game-development\\unreal-world-builder",
+      "skill_name": "unreal-world-builder",
+      "display_name": "Unreal 世界构建师",
+      "department": "game-development",
+      "tags": [
+        "game-development"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\hr\\hr-performance-reviewer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\hr\\performance-reviewer",
+      "skill_name": "performance-reviewer",
+      "display_name": "绩效管理专家",
+      "department": "hr",
+      "tags": [
+        "hr"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\hr\\hr-recruiter.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\hr\\recruiter",
+      "skill_name": "recruiter",
+      "display_name": "招聘专家",
+      "department": "hr",
+      "tags": [
+        "hr"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\legal\\legal-contract-reviewer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\legal\\contract-reviewer",
+      "skill_name": "contract-reviewer",
+      "display_name": "合同审查专家",
+      "department": "legal",
+      "tags": [
+        "legal"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\legal\\legal-policy-writer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\legal\\policy-writer",
+      "skill_name": "policy-writer",
+      "display_name": "制度文件撰写专家",
+      "department": "legal",
+      "tags": [
+        "legal"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-agentic-search-optimizer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\agentic-search-optimizer",
+      "skill_name": "agentic-search-optimizer",
+      "display_name": "智能搜索优化师",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-ai-citation-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\ai-citation-strategist",
+      "skill_name": "ai-citation-strategist",
+      "display_name": "AI 引文策略师",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-app-store-optimizer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\app-store-optimizer",
+      "skill_name": "app-store-optimizer",
+      "display_name": "应用商店优化师",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-baidu-seo-specialist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\baidu-seo-specialist",
+      "skill_name": "baidu-seo-specialist",
+      "display_name": "百度 SEO 专家",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-bilibili-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\bilibili-strategist",
+      "skill_name": "bilibili-strategist",
+      "display_name": "B站内容策略师",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-book-co-author.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\book-co-author",
+      "skill_name": "book-co-author",
+      "display_name": "图书联合作者",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-carousel-growth-engine.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\carousel-growth-engine",
+      "skill_name": "carousel-growth-engine",
+      "display_name": "轮播图增长引擎",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-china-ecommerce-operator.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\china-ecommerce-operator",
+      "skill_name": "china-ecommerce-operator",
+      "display_name": "中国电商运营专家",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-china-market-localization-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\china-market-localization-strategist",
+      "skill_name": "china-market-localization-strategist",
+      "display_name": "中国市场本地化策略师",
+      "department": "marketing",
+      "tags": [
+        "marketing",
+        "social-media"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-content-creator.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\content-creator",
+      "skill_name": "content-creator",
+      "display_name": "内容创作者",
+      "department": "marketing",
+      "tags": [
+        "marketing",
+        "social-media"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-cross-border-ecommerce.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\cross-border-ecommerce",
+      "skill_name": "cross-border-ecommerce",
+      "display_name": "跨境电商运营专家",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-daily-news-briefing.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\daily-news-briefing",
+      "skill_name": "daily-news-briefing",
+      "display_name": "新闻情报官",
+      "department": "marketing",
+      "tags": [
+        "marketing",
+        "social-media"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-douyin-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\douyin-strategist",
+      "skill_name": "douyin-strategist",
+      "display_name": "抖音策略师",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-ecommerce-operator.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\ecommerce-operator",
+      "skill_name": "ecommerce-operator",
+      "display_name": "电商运营师",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-growth-hacker.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\growth-hacker",
+      "skill_name": "growth-hacker",
+      "display_name": "增长黑客",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-instagram-curator.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\instagram-curator",
+      "skill_name": "instagram-curator",
+      "display_name": "Instagram 策展师",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-knowledge-commerce-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\knowledge-commerce-strategist",
+      "skill_name": "knowledge-commerce-strategist",
+      "display_name": "知识付费产品策划师",
+      "department": "marketing",
+      "tags": [
+        "marketing",
+        "sales"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-kuaishou-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\kuaishou-strategist",
+      "skill_name": "kuaishou-strategist",
+      "display_name": "快手策略师",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-linkedin-content-creator.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\linkedin-content-creator",
+      "skill_name": "linkedin-content-creator",
+      "display_name": "LinkedIn 内容创作专家",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-livestream-commerce-coach.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\livestream-commerce-coach",
+      "skill_name": "livestream-commerce-coach",
+      "display_name": "直播电商主播教练",
+      "department": "marketing",
+      "tags": [
+        "marketing",
+        "social-media"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-podcast-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\podcast-strategist",
+      "skill_name": "podcast-strategist",
+      "display_name": "播客内容策略师",
+      "department": "marketing",
+      "tags": [
+        "marketing",
+        "social-media"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-private-domain-operator.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\private-domain-operator",
+      "skill_name": "private-domain-operator",
+      "display_name": "私域流量运营师",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-reddit-community-builder.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\reddit-community-builder",
+      "skill_name": "reddit-community-builder",
+      "display_name": "Reddit 社区运营",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-seo-specialist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\seo-specialist",
+      "skill_name": "seo-specialist",
+      "display_name": "SEO专家",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-short-video-editing-coach.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\short-video-editing-coach",
+      "skill_name": "short-video-editing-coach",
+      "display_name": "短视频剪辑指导师",
+      "department": "marketing",
+      "tags": [
+        "marketing",
+        "content",
+        "social-media"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-social-media-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\social-media-strategist",
+      "skill_name": "social-media-strategist",
+      "display_name": "社交媒体策略师",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-tiktok-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\tiktok-strategist",
+      "skill_name": "tiktok-strategist",
+      "display_name": "TikTok 策略师",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-twitter-engager.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\twitter-engager",
+      "skill_name": "twitter-engager",
+      "display_name": "Twitter 互动官",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-video-optimization-specialist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\video-optimization-specialist",
+      "skill_name": "video-optimization-specialist",
+      "display_name": "视频优化专家",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-wechat-official-account.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\wechat-official-account",
+      "skill_name": "wechat-official-account",
+      "display_name": "微信公众号管理",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-wechat-operator.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\wechat-operator",
+      "skill_name": "wechat-operator",
+      "display_name": "微信公众号运营",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-weibo-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\weibo-strategist",
+      "skill_name": "weibo-strategist",
+      "display_name": "微博运营策略师",
+      "department": "marketing",
+      "tags": [
+        "marketing",
+        "content"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-weixin-channels-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\weixin-channels-strategist",
+      "skill_name": "weixin-channels-strategist",
+      "display_name": "微信视频号运营策略师",
+      "department": "marketing",
+      "tags": [
+        "marketing",
+        "social-media"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-xiaohongshu-operator.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\xiaohongshu-operator",
+      "skill_name": "xiaohongshu-operator",
+      "display_name": "小红书运营专家",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-xiaohongshu-specialist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\xiaohongshu-specialist",
+      "skill_name": "xiaohongshu-specialist",
+      "display_name": "小红书专家",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\marketing\\marketing-zhihu-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\marketing\\zhihu-strategist",
+      "skill_name": "zhihu-strategist",
+      "display_name": "知乎策略师",
+      "department": "marketing",
+      "tags": [
+        "marketing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\paid-media\\paid-media-auditor.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\paid-media\\auditor",
+      "skill_name": "auditor",
+      "display_name": "付费媒体审计师",
+      "department": "paid-media",
+      "tags": [
+        "paid-media"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\paid-media\\paid-media-creative-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\paid-media\\creative-strategist",
+      "skill_name": "creative-strategist",
+      "display_name": "广告创意策略师",
+      "department": "paid-media",
+      "tags": [
+        "paid-media"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\paid-media\\paid-media-paid-social-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\paid-media\\paid-social-strategist",
+      "skill_name": "paid-social-strategist",
+      "display_name": "社交广告策略师",
+      "department": "paid-media",
+      "tags": [
+        "paid-media",
+        "social-media"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\paid-media\\paid-media-ppc-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\paid-media\\ppc-strategist",
+      "skill_name": "ppc-strategist",
+      "display_name": "PPC 竞价策略师",
+      "department": "paid-media",
+      "tags": [
+        "paid-media"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\paid-media\\paid-media-programmatic-buyer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\paid-media\\programmatic-buyer",
+      "skill_name": "programmatic-buyer",
+      "display_name": "程序化广告采买专家",
+      "department": "paid-media",
+      "tags": [
+        "paid-media"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\paid-media\\paid-media-search-query-analyst.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\paid-media\\search-query-analyst",
+      "skill_name": "search-query-analyst",
+      "display_name": "搜索词分析师",
+      "department": "paid-media",
+      "tags": [
+        "paid-media"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\paid-media\\paid-media-tracking-specialist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\paid-media\\tracking-specialist",
+      "skill_name": "tracking-specialist",
+      "display_name": "追踪与归因专家",
+      "department": "paid-media",
+      "tags": [
+        "paid-media"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\product\\product-behavioral-nudge-engine.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\product\\behavioral-nudge-engine",
+      "skill_name": "behavioral-nudge-engine",
+      "display_name": "行为助推引擎",
+      "department": "product",
+      "tags": [
+        "product"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\product\\product-feedback-synthesizer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\product\\feedback-synthesizer",
+      "skill_name": "feedback-synthesizer",
+      "display_name": "反馈分析师",
+      "department": "product",
+      "tags": [
+        "product"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\product\\product-manager.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\product\\manager",
+      "skill_name": "manager",
+      "display_name": "产品经理",
+      "department": "product",
+      "tags": [
+        "product"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\product\\product-sprint-prioritizer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\product\\sprint-prioritizer",
+      "skill_name": "sprint-prioritizer",
+      "display_name": "Sprint 排序师",
+      "department": "product",
+      "tags": [
+        "product"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\product\\product-trend-researcher.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\product\\trend-researcher",
+      "skill_name": "trend-researcher",
+      "display_name": "趋势研究员",
+      "department": "product",
+      "tags": [
+        "product"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\project-management\\project-management-experiment-tracker.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\project-management\\experiment-tracker",
+      "skill_name": "experiment-tracker",
+      "display_name": "实验追踪员",
+      "department": "project-management",
+      "tags": [
+        "project-management"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\project-management\\project-management-jira-workflow-steward.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\project-management\\jira-workflow-steward",
+      "skill_name": "jira-workflow-steward",
+      "display_name": "Jira工作流管家",
+      "department": "project-management",
+      "tags": [
+        "project-management"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\project-management\\project-management-project-shepherd.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\project-management\\project-shepherd",
+      "skill_name": "project-shepherd",
+      "display_name": "项目牧羊人",
+      "department": "project-management",
+      "tags": [
+        "project-management"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\project-management\\project-management-studio-operations.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\project-management\\studio-operations",
+      "skill_name": "studio-operations",
+      "display_name": "工作室运营",
+      "department": "project-management",
+      "tags": [
+        "project-management"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\project-management\\project-management-studio-producer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\project-management\\studio-producer",
+      "skill_name": "studio-producer",
+      "display_name": "工作室制片人",
+      "department": "project-management",
+      "tags": [
+        "project-management"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\project-management\\project-manager-senior.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\project-management\\project-manager-senior",
+      "skill_name": "project-manager-senior",
+      "display_name": "高级项目经理",
+      "department": "project-management",
+      "tags": [
+        "project-management"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\sales\\sales-account-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\sales\\account-strategist",
+      "skill_name": "account-strategist",
+      "display_name": "客户拓展策略师",
+      "department": "sales",
+      "tags": [
+        "sales"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\sales\\sales-coach.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\sales\\coach",
+      "skill_name": "coach",
+      "display_name": "销售教练",
+      "department": "sales",
+      "tags": [
+        "sales"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\sales\\sales-deal-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\sales\\deal-strategist",
+      "skill_name": "deal-strategist",
+      "display_name": "赢单策略师",
+      "department": "sales",
+      "tags": [
+        "sales"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\sales\\sales-discovery-coach.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\sales\\discovery-coach",
+      "skill_name": "discovery-coach",
+      "display_name": "Discovery 教练",
+      "department": "sales",
+      "tags": [
+        "sales"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\sales\\sales-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\sales\\engineer",
+      "skill_name": "engineer",
+      "display_name": "售前工程师",
+      "department": "sales",
+      "tags": [
+        "sales"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\sales\\sales-outbound-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\sales\\outbound-strategist",
+      "skill_name": "outbound-strategist",
+      "display_name": "Outbound 策略师",
+      "department": "sales",
+      "tags": [
+        "sales"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\sales\\sales-pipeline-analyst.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\sales\\pipeline-analyst",
+      "skill_name": "pipeline-analyst",
+      "display_name": "Pipeline 分析师",
+      "department": "sales",
+      "tags": [
+        "sales"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\sales\\sales-proposal-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\sales\\proposal-strategist",
+      "skill_name": "proposal-strategist",
+      "display_name": "投标策略师",
+      "department": "sales",
+      "tags": [
+        "sales"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\spatial-computing\\macos-spatial-metal-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\spatial-computing\\macos-spatial-metal-engineer",
+      "skill_name": "macos-spatial-metal-engineer",
+      "display_name": "macOS Metal 空间工程师",
+      "department": "spatial-computing",
+      "tags": [
+        "spatial-computing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\spatial-computing\\terminal-integration-specialist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\spatial-computing\\terminal-integration-specialist",
+      "skill_name": "terminal-integration-specialist",
+      "display_name": "终端集成专家",
+      "department": "spatial-computing",
+      "tags": [
+        "spatial-computing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\spatial-computing\\visionos-spatial-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\spatial-computing\\visionos-spatial-engineer",
+      "skill_name": "visionos-spatial-engineer",
+      "display_name": "visionOS 空间工程师",
+      "department": "spatial-computing",
+      "tags": [
+        "spatial-computing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\spatial-computing\\xr-cockpit-interaction-specialist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\spatial-computing\\xr-cockpit-interaction-specialist",
+      "skill_name": "xr-cockpit-interaction-specialist",
+      "display_name": "XR 座舱交互专家",
+      "department": "spatial-computing",
+      "tags": [
+        "spatial-computing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\spatial-computing\\xr-immersive-developer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\spatial-computing\\xr-immersive-developer",
+      "skill_name": "xr-immersive-developer",
+      "display_name": "XR 沉浸式开发者",
+      "department": "spatial-computing",
+      "tags": [
+        "spatial-computing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\spatial-computing\\xr-interface-architect.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\spatial-computing\\xr-interface-architect",
+      "skill_name": "xr-interface-architect",
+      "display_name": "XR 界面架构师",
+      "department": "spatial-computing",
+      "tags": [
+        "spatial-computing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\accounts-payable-agent.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\accounts-payable-agent",
+      "skill_name": "accounts-payable-agent",
+      "display_name": "应付账款智能体",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\agentic-identity-trust.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\agentic-identity-trust",
+      "skill_name": "agentic-identity-trust",
+      "display_name": "身份信任架构师",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\agents-orchestrator.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\agents-orchestrator",
+      "skill_name": "agents-orchestrator",
+      "display_name": "智能体编排者",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\automation-governance-architect.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\automation-governance-architect",
+      "skill_name": "automation-governance-architect",
+      "display_name": "自动化治理架构师",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\blockchain-security-auditor.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\blockchain-security-auditor",
+      "skill_name": "blockchain-security-auditor",
+      "display_name": "区块链安全审计师",
+      "department": "specialized",
+      "tags": [
+        "specialized",
+        "blockchain"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\compliance-auditor.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\compliance-auditor",
+      "skill_name": "compliance-auditor",
+      "display_name": "合规审计师",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\corporate-training-designer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\corporate-training-designer",
+      "skill_name": "corporate-training-designer",
+      "display_name": "企业培训课程设计师",
+      "department": "specialized",
+      "tags": [
+        "specialized",
+        "hr"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\data-consolidation-agent.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\data-consolidation-agent",
+      "skill_name": "data-consolidation-agent",
+      "display_name": "数据整合师",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\gaokao-college-advisor.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\gaokao-college-advisor",
+      "skill_name": "gaokao-college-advisor",
+      "display_name": "高考志愿填报顾问",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\government-digital-presales-consultant.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\government-digital-presales-consultant",
+      "skill_name": "government-digital-presales-consultant",
+      "display_name": "政务数字化售前顾问",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\healthcare-customer-service.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\healthcare-customer-service",
+      "skill_name": "healthcare-customer-service",
+      "display_name": "医疗客服专家",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\healthcare-marketing-compliance.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\healthcare-marketing-compliance",
+      "skill_name": "healthcare-marketing-compliance",
+      "display_name": "医疗健康营销合规师",
+      "department": "specialized",
+      "tags": [
+        "specialized",
+        "social-media",
+        "legal"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\hospitality-guest-services.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\hospitality-guest-services",
+      "skill_name": "hospitality-guest-services",
+      "display_name": "酒店宾客服务专家",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\hr-onboarding.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\onboarding",
+      "skill_name": "onboarding",
+      "display_name": "HR 入职管理专家",
+      "department": "specialized",
+      "tags": [
+        "specialized",
+        "hr"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\identity-graph-operator.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\identity-graph-operator",
+      "skill_name": "identity-graph-operator",
+      "display_name": "身份图谱操作员",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\language-translator.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\language-translator",
+      "skill_name": "language-translator",
+      "display_name": "语言翻译专家",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\legal-billing-time-tracking.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\billing-time-tracking",
+      "skill_name": "billing-time-tracking",
+      "display_name": "律所计费与工时专家",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\legal-client-intake.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\client-intake",
+      "skill_name": "client-intake",
+      "display_name": "律所客户接案专家",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\legal-document-review.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\document-review",
+      "skill_name": "document-review",
+      "display_name": "法律文书审查专家",
+      "department": "specialized",
+      "tags": [
+        "specialized",
+        "legal"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\livestock-archive-auditor.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\livestock-archive-auditor",
+      "skill_name": "livestock-archive-auditor",
+      "display_name": "养殖档案核对员",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\loan-officer-assistant.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\loan-officer-assistant",
+      "skill_name": "loan-officer-assistant",
+      "display_name": "信贷经理助手",
+      "department": "specialized",
+      "tags": [
+        "specialized",
+        "legal"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\lsp-index-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\lsp-index-engineer",
+      "skill_name": "lsp-index-engineer",
+      "display_name": "LSP 索引工程师",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\prompt-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\prompt-engineer",
+      "skill_name": "prompt-engineer",
+      "display_name": "提示词工程师",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\real-estate-buyer-seller.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\real-estate-buyer-seller",
+      "skill_name": "real-estate-buyer-seller",
+      "display_name": "房地产经纪助手",
+      "department": "specialized",
+      "tags": [
+        "specialized",
+        "legal"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\recruitment-specialist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\recruitment-specialist",
+      "skill_name": "recruitment-specialist",
+      "display_name": "招聘专家",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\report-distribution-agent.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\report-distribution-agent",
+      "skill_name": "report-distribution-agent",
+      "display_name": "报告分发师",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\retail-customer-returns.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\retail-customer-returns",
+      "skill_name": "retail-customer-returns",
+      "display_name": "零售退货专家",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\sales-data-extraction-agent.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\data-extraction-agent",
+      "skill_name": "data-extraction-agent",
+      "display_name": "销售数据提取师",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\specialized-ai-policy-writer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\ai-policy-writer",
+      "skill_name": "ai-policy-writer",
+      "display_name": "AI 治理政策专家",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\specialized-chief-of-staff.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\chief-of-staff",
+      "skill_name": "chief-of-staff",
+      "display_name": "幕僚长",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\specialized-civil-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\civil-engineer",
+      "skill_name": "civil-engineer",
+      "display_name": "土木工程师",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\specialized-cultural-intelligence-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\cultural-intelligence-strategist",
+      "skill_name": "cultural-intelligence-strategist",
+      "display_name": "文化智能策略师",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\specialized-developer-advocate.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\developer-advocate",
+      "skill_name": "developer-advocate",
+      "display_name": "开发者布道师",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\specialized-document-generator.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\document-generator",
+      "skill_name": "document-generator",
+      "display_name": "文档生成器",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\specialized-french-consulting-market.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\french-consulting-market",
+      "skill_name": "french-consulting-market",
+      "display_name": "法国咨询市场专家",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\specialized-korean-business-navigator.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\korean-business-navigator",
+      "skill_name": "korean-business-navigator",
+      "display_name": "韩国商务专家",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\specialized-mcp-builder.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\mcp-builder",
+      "skill_name": "mcp-builder",
+      "display_name": "MCP 构建器",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\specialized-meeting-assistant.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\meeting-assistant",
+      "skill_name": "meeting-assistant",
+      "display_name": "会议效率专家",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\specialized-model-qa.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\model-qa",
+      "skill_name": "model-qa",
+      "display_name": "模型 QA 专家",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\specialized-pricing-optimizer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\pricing-optimizer",
+      "skill_name": "pricing-optimizer",
+      "display_name": "动态定价策略师",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\specialized-risk-assessor.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\risk-assessor",
+      "skill_name": "risk-assessor",
+      "display_name": "企业风险评估师",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\specialized-salesforce-architect.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\salesforce-architect",
+      "skill_name": "salesforce-architect",
+      "display_name": "Salesforce 架构师",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\specialized-workflow-architect.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\workflow-architect",
+      "skill_name": "workflow-architect",
+      "display_name": "工作流架构师",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\study-abroad-advisor.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\study-abroad-advisor",
+      "skill_name": "study-abroad-advisor",
+      "display_name": "留学规划顾问",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\technical-translator-agent.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\technical-translator-agent",
+      "skill_name": "technical-translator-agent",
+      "display_name": "技术翻译专家",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\specialized\\zk-steward.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\specialized\\zk-steward",
+      "skill_name": "zk-steward",
+      "display_name": "ZK 管家",
+      "department": "specialized",
+      "tags": [
+        "specialized"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\supply-chain\\supply-chain-garment-factory-planning-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\supply-chain\\garment-factory-planning-engineer",
+      "skill_name": "garment-factory-planning-engineer",
+      "display_name": "服装工厂规划工程师",
+      "department": "supply-chain",
+      "tags": [
+        "supply-chain"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\supply-chain\\supply-chain-inventory-forecaster.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\supply-chain\\inventory-forecaster",
+      "skill_name": "inventory-forecaster",
+      "display_name": "库存预测专家",
+      "department": "supply-chain",
+      "tags": [
+        "supply-chain"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\supply-chain\\supply-chain-route-optimizer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\supply-chain\\route-optimizer",
+      "skill_name": "route-optimizer",
+      "display_name": "物流路线优化师",
+      "department": "supply-chain",
+      "tags": [
+        "supply-chain"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\supply-chain\\supply-chain-strategist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\supply-chain\\strategist",
+      "skill_name": "strategist",
+      "display_name": "供应链采购策略师",
+      "department": "supply-chain",
+      "tags": [
+        "supply-chain"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\supply-chain\\supply-chain-vendor-evaluator.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\supply-chain\\vendor-evaluator",
+      "skill_name": "vendor-evaluator",
+      "display_name": "供应商评估专家",
+      "department": "supply-chain",
+      "tags": [
+        "supply-chain"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\support\\support-analytics-reporter.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\support\\analytics-reporter",
+      "skill_name": "analytics-reporter",
+      "display_name": "数据分析师",
+      "department": "support",
+      "tags": [
+        "support"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\support\\support-executive-summary-generator.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\support\\executive-summary-generator",
+      "skill_name": "executive-summary-generator",
+      "display_name": "高管摘要师",
+      "department": "support",
+      "tags": [
+        "support"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\support\\support-finance-tracker.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\support\\tracker",
+      "skill_name": "tracker",
+      "display_name": "财务追踪员",
+      "department": "support",
+      "tags": [
+        "support",
+        "finance"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\support\\support-infrastructure-maintainer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\support\\infrastructure-maintainer",
+      "skill_name": "infrastructure-maintainer",
+      "display_name": "基础设施运维师",
+      "department": "support",
+      "tags": [
+        "support"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\support\\support-legal-compliance-checker.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\support\\compliance-checker",
+      "skill_name": "compliance-checker",
+      "display_name": "法务合规员",
+      "department": "support",
+      "tags": [
+        "support",
+        "legal"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\support\\support-recruitment-specialist.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\support\\recruitment-specialist",
+      "skill_name": "recruitment-specialist",
+      "display_name": "招聘运营专家",
+      "department": "support",
+      "tags": [
+        "support",
+        "legal",
+        "hr"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\support\\support-support-responder.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\support\\responder",
+      "skill_name": "responder",
+      "display_name": "客服响应者",
+      "department": "support",
+      "tags": [
+        "support"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\testing\\testing-accessibility-auditor.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\testing\\accessibility-auditor",
+      "skill_name": "accessibility-auditor",
+      "display_name": "无障碍审核员",
+      "department": "testing",
+      "tags": [
+        "testing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\testing\\testing-api-tester.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\testing\\api-tester",
+      "skill_name": "api-tester",
+      "display_name": "API 测试员",
+      "department": "testing",
+      "tags": [
+        "testing",
+        "security"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\testing\\testing-embedded-qa-engineer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\testing\\embedded-qa-engineer",
+      "skill_name": "embedded-qa-engineer",
+      "display_name": "嵌入式测试工程师",
+      "department": "testing",
+      "tags": [
+        "testing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\testing\\testing-evidence-collector.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\testing\\evidence-collector",
+      "skill_name": "evidence-collector",
+      "display_name": "证据收集者",
+      "department": "testing",
+      "tags": [
+        "testing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\testing\\testing-performance-benchmarker.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\testing\\performance-benchmarker",
+      "skill_name": "performance-benchmarker",
+      "display_name": "性能基准师",
+      "department": "testing",
+      "tags": [
+        "testing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\testing\\testing-reality-checker.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\testing\\reality-checker",
+      "skill_name": "reality-checker",
+      "display_name": "现实检验者",
+      "department": "testing",
+      "tags": [
+        "testing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\testing\\testing-test-results-analyzer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\testing\\test-results-analyzer",
+      "skill_name": "test-results-analyzer",
+      "display_name": "测试结果分析师",
+      "department": "testing",
+      "tags": [
+        "testing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\testing\\testing-tool-evaluator.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\testing\\tool-evaluator",
+      "skill_name": "tool-evaluator",
+      "display_name": "工具评估师",
+      "department": "testing",
+      "tags": [
+        "testing"
+      ]
+    },
+    {
+      "source": "D:\\Workspace\\agency-agents-zh\\testing\\testing-workflow-optimizer.md",
+      "target_dir": "D:\\github\\xagent\\docs\\agency-agents-zh\\skills\\testing\\workflow-optimizer",
+      "skill_name": "workflow-optimizer",
+      "display_name": "工作流优化师",
+      "department": "testing",
+      "tags": [
+        "testing"
+      ]
+    }
+  ]
+}

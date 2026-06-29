@@ -1,5 +1,5 @@
-# Git
-# .git is needed for hatch-vcs version detection in backend build
+# Git (version detected via SETUPTOOLS_SCM_PRETEND_VERSION env var)
+.git
 .github
 
 # Python
@@ -46,6 +46,17 @@ tests/
 docker-compose*.yml
 Dockerfile*
 .dockerignore
+
+# Frontend generated (large, not needed for build)
+frontend/node_modules
+frontend/.next
+frontend/out
+
+# Claude Code
+.claude/
+CLAUDE.md
+AGENTS.md
+.memory
 
 # Data directories
 data/

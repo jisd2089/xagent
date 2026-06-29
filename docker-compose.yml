@@ -30,7 +30,7 @@ services:
 
   # Xagent Backend (FastAPI)
   backend:
-    image: xprobe/xagent-backend:20260604
+    image: xprobe/xagent-backend:20260612
     container_name: xagent_backend
     restart: unless-stopped
     # Don't expose ports, only accessible through nginx

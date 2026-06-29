@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Dict
 
 from ...core.pptx_tool import (
     clean_pptx,
+    generate_pptx,
     pack_pptx,
     read_pptx,
     unpack_pptx,
@@ -67,6 +68,37 @@ class PPTXGenerationTool:
     async def clean_pptx(self, unpacked_dir: str) -> Dict:
         """Clean orphaned files from unpacked PPTX directory."""
         return clean_pptx(unpacked_dir, self._workspace)
+
+    async def generate_pptx(
+        self,
+        output_path: str,
+        title: str = "Presentation",
+        theme: str = "aurora",
+        theme_config: dict | None = None,
+        slide_contents: list | str | None = None,
+    ) -> Dict:
+        """Generate a new PPTX presentation from slide definitions.
+
+        Args:
+            output_path: Output .pptx file name (saved to workspace output directory)
+            title: Presentation title
+            theme: Preset theme name - 'aurora' (light), 'vortex' (dark), or 'mono' (minimal)
+            theme_config: Custom theme config dict to override preset
+            slide_contents: List of slide dicts, each with 'type' and content fields.
+                Supported slide types: title, content, two_column, section_divider,
+                quote, thank_you, metrics, timeline, comparison, statement,
+                image_highlight, flow.
+                Example: [{'type': 'title', 'title': 'My Title', 'subtitle': 'Sub'},
+                          {'type': 'content', 'title': 'Topic', 'bullets': ['A', 'B']}]
+        """
+        return generate_pptx(
+            output_path=output_path,
+            title=title,
+            theme=theme,
+            theme_config=theme_config,
+            slide_contents=slide_contents,
+            workspace=self._workspace,
+        )
 
     def get_tools(self) -> list:
         """Get all tool instances."""
@@ -152,6 +184,41 @@ Returns:
     Dictionary with success status and count of removed files
 """,
                 tags=["pptx", "presentation", "clean", "editing"],
+            ),
+            PPTXTool(
+                self.generate_pptx,
+                name="generate_pptx",
+                description="""Generate a new PowerPoint presentation (.pptx) from slide definitions.
+
+Use this tool as the PRIMARY method for creating presentations - it handles file registration
+and workspace integration automatically. Use execute_javascript_code only for complex
+customizations not supported by this tool.
+
+Args:
+    output_path: Output .pptx file name (e.g., 'my_deck.pptx') - saved to workspace output
+    title: Presentation title
+    theme: Preset theme - 'aurora' (light, default), 'vortex' (dark), or 'mono' (minimal)
+    theme_config: Optional custom theme config dict for full control over colors/fonts/layout
+    slide_contents: List of slide definition dicts. Each slide has a 'type' field and
+        type-specific content fields. Supported types and their fields:
+
+        - title: {title, subtitle}
+        - content: {title, bullets: [str, ...]}
+        - two_column: {title, left: [str, ...], right: [str, ...]}
+        - section_divider: {section_title}
+        - quote: {text}
+        - thank_you: {message}
+        - metrics: {title, items: [{label, value}, ...]}
+        - timeline: {title, milestones: [{title, description}, ...]}
+        - comparison: {title, left_title, right_title, left_items: [...], right_items: [...]}
+        - statement: {text}
+        - image_highlight: {title, caption, image_path}
+        - flow: {title, steps: [str, ...]}
+
+Returns:
+    Dictionary with success status, output file path, and file_id for download
+""",
+                tags=["pptx", "presentation", "generate", "create"],
             ),
         ]
 
