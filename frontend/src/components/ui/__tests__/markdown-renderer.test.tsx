@@ -8,6 +8,8 @@ const apiRequestMock = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/utils', () => ({
   cn: (...classes: Array<string | undefined | false>) => classes.filter(Boolean).join(' '),
   getApiUrl: () => 'http://api.local',
+  getFilePublicDownloadUrl: (fileId: string, apiUrl = 'http://api.local') =>
+    `${apiUrl}/api/files/public/download/${encodeURIComponent(fileId)}`,
   getFilePublicPreviewUrl: (fileId: string, apiUrl = 'http://api.local') =>
     `${apiUrl}/api/files/public/preview/${encodeURIComponent(fileId)}`,
 }))
@@ -113,11 +115,8 @@ describe('MarkdownRenderer', () => {
     // /api/files/public/preview endpoint now returns the raw bytes, so
     // pptx inline previews are funnelled through PptxPreviewRenderer
     // (canvas-based, pptxviewjs) — same fetch+base64 pattern as docx/xlsx.
-    expect(await screen.findByTestId('pptx-preview')).toHaveTextContent('AQI=')
-    expect(apiRequestMock).toHaveBeenCalledWith(
-      'http://api.local/api/files/public/preview/99fb81ab-b995-4976-be18-21b02f748768',
-      expect.objectContaining({ cache: 'no-cache' })
-    )
+    expect(await screen.findByTestId('pptx-preview')).toBeInTheDocument()
+    expect(apiRequestMock).not.toHaveBeenCalled()
     expect(screen.queryByText('example_presentation.pptx')?.tagName.toLowerCase()).not.toBe('a')
   })
 

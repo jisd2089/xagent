@@ -79,6 +79,21 @@ class FakeWriteFileTool:
         }
 
 
+class FakeWorkspace:
+    def __init__(self, root: Any) -> None:
+        self.workspace_dir = root
+        self.output_dir = root / "output"
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self._registered: dict[str, str] = {}
+
+    def get_file_id_from_path(self, file_path: str) -> str | None:
+        return self._registered.get(file_path)
+
+    def register_file(self, file_path: str) -> str:
+        self._registered[file_path] = "file-1"
+        return "file-1"
+
+
 class FakeSearchTool:
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
@@ -699,6 +714,7 @@ async def test_react_pattern_streams_only_final_answer_after_tool_call() -> None
     assert len(llm.calls) == 0
     assert len(llm.stream_calls) == 2
     assert llm.stream_calls[0]["tools"][0]["function"]["name"] == "calculator"
+    assert llm.stream_calls[0]["thinking"] == {"type": "disabled", "enable": False}
     assert llm.stream_calls[1]["tools"] is None
     assert [event["type"] for event in outbound.events] == [
         "final_answer_start",
@@ -2038,6 +2054,37 @@ async def test_react_pattern_can_finish_with_final_answer_tool() -> None:
     assert context.messages[-2].metadata["tool_name"] == "final_answer"
     assert context.messages[-1].role == "assistant"
     assert context.messages[-1].content == "The result is 4."
+
+
+def test_react_pattern_recovers_final_answer_from_invalid_json_arguments() -> None:
+    pattern = ReActPattern()
+    raw_arguments = '{"response_language":"简体中文","answer":"# 报告\\n正文'
+
+    answer = pattern._recover_final_answer({"input": raw_arguments})
+
+    assert answer == "# 报告\n正文"
+
+
+def test_react_pattern_writes_dsml_file_call_as_attachment(tmp_path: Any) -> None:
+    pattern = ReActPattern()
+    runtime = PatternRuntime(workspace=FakeWorkspace(tmp_path))
+    response = (
+        "Tool call failed: File download failed.\n"
+        "<｜｜DSML｜｜tool_calls> <｜｜DSML｜｜invoke name=\"write_file\"> "
+        "<｜｜DSML｜｜parameter name=\"content\" string=\"true\">"
+        "# 职业规划报告\n\n完整正文"
+    )
+
+    final_response, file_outputs = pattern._prepare_final_response(
+        response=response,
+        runtime=runtime,
+    )
+
+    assert final_response == "# 职业规划报告\n\n完整正文"
+    assert file_outputs[0]["markdown_link"] == "[agent_result.md](file:file-1)"
+    assert (tmp_path / "output" / "agent_result.md").read_text(
+        encoding="utf-8"
+    ) == "# 职业规划报告\n\n完整正文"
 
 
 @pytest.mark.asyncio

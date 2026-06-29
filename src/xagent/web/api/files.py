@@ -219,6 +219,7 @@ async def store_uploaded_files(
     single_file_mode: bool,
 ) -> Dict[str, Any]:
     parsed_task_id = _parse_task_id(task_id)
+    _ensure_task_exists(db, parsed_task_id)
     uploaded_files = []
     written_paths: list[Path] = []
     written_storage_keys: list[str] = []
@@ -229,7 +230,7 @@ async def store_uploaded_files(
                 raise HTTPException(status_code=422, detail="No filename provided")
             if not is_allowed_file(uploaded.filename, task_type):
                 raise HTTPException(
-                    status_code=500,
+                    status_code=415,
                     detail=f"File type {Path(uploaded.filename).suffix.lower()} not supported for task type {task_type}",
                 )
 
@@ -237,7 +238,8 @@ async def store_uploaded_files(
                 target_path = _build_unique_file_path(
                     get_upload_path(
                         uploaded.filename, task_id, folder, _user_id_value(user)
-                    )
+                    ),
+                    db,
                 )
             except ValueError as e:
                 logger.warning(f"Invalid folder name rejected: {folder!r} - {e}")
@@ -373,8 +375,24 @@ def _parse_task_id(task_id: Optional[str]) -> Optional[int]:
         raise HTTPException(status_code=400, detail="Invalid task_id") from exc
 
 
-def _build_unique_file_path(path: Path) -> Path:
-    if not path.exists():
+def _ensure_task_exists(db: Session, task_id: Optional[int]) -> None:
+    if task_id is None:
+        return
+    if db.query(Task.id).filter(Task.id == task_id).first() is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+
+def _storage_path_exists(db: Session, path: Path) -> bool:
+    return (
+        db.query(UploadedFile.id)
+        .filter(UploadedFile.storage_path == str(path))
+        .first()
+        is not None
+    )
+
+
+def _build_unique_file_path(path: Path, db: Session) -> Path:
+    if not path.exists() and not _storage_path_exists(db, path):
         return path
     stem = path.stem
     suffix = path.suffix
@@ -382,7 +400,7 @@ def _build_unique_file_path(path: Path) -> Path:
     i = 1
     while True:
         candidate = parent / f"{stem}_{i}{suffix}"
-        if not candidate.exists():
+        if not candidate.exists() and not _storage_path_exists(db, candidate):
             return candidate
         i += 1
 

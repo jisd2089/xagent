@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import json
 from dataclasses import dataclass, field
 from typing import Any, Callable
 from uuid import uuid4
@@ -44,6 +45,7 @@ class PatternRuntime:
     trace_runs: list[dict[str, Any]] = field(default_factory=list)
     active_react_step_id: str | None = None
     last_final_answer_stream_message_id: str | None = None
+    workspace: Any | None = None
     _active_llm_tasks: set[asyncio.Future[Any]] = field(
         default_factory=set,
         init=False,
@@ -685,14 +687,53 @@ class PatternRuntime:
             status = result.get("status")
             if isinstance(status, str) and status.lower() == "error":
                 return False
+            body = result.get("body")
+            if isinstance(body, str) and self._sse_error_message(body):
+                return False
         return True
 
     def _tool_result_error(self, result: Any) -> Exception:
         if isinstance(result, dict):
-            message = result.get("error") or result.get("message") or str(result)
+            body = result.get("body")
+            sse_error = self._sse_error_message(body) if isinstance(body, str) else None
+            message = (
+                sse_error
+                or result.get("error")
+                or result.get("message")
+                or str(result)
+            )
         else:
             message = str(result)
         return RuntimeError(message)
+
+    @staticmethod
+    def _sse_error_message(body: str) -> str | None:
+        if "event: Error" not in body:
+            return None
+
+        for line in body.splitlines():
+            if not line.startswith("data:"):
+                continue
+            payload = line.removeprefix("data:").strip()
+            if not payload:
+                continue
+            try:
+                parsed = json.loads(payload)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(parsed, dict):
+                for key in (
+                    "error_message",
+                    "error",
+                    "message",
+                    "detail",
+                    "msg",
+                ):
+                    value = parsed.get(key)
+                    if isinstance(value, str) and value.strip():
+                        return value.strip()
+
+        return "Tool returned SSE event: Error"
 
     async def on_llm_start(
         self,

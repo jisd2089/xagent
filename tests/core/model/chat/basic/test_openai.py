@@ -119,6 +119,24 @@ class TestOpenAILLM:
         assert "tools" in call_args.kwargs
         assert call_args.kwargs["tools"] == tools
 
+    def test_openai_compatible_deepseek_uses_deepseek_thinking_payload(self):
+        """DeepSeek-compatible endpoints need `thinking`, not `enable_thinking`."""
+
+        llm = OpenAILLM(
+            model_name="deepseek-v4-pro",
+            base_url="https://api.deepseek.com",
+            api_key="test-api-key",
+            abilities=["chat", "tool_calling", "thinking_mode"],
+        )
+
+        extra_body = llm._disable_thinking_extra_body({"trace_id": "abc"})
+
+        assert extra_body == {
+            "trace_id": "abc",
+            "thinking": {"type": "disabled"},
+        }
+        assert "enable_thinking" not in extra_body
+
     def test_parse_stream_chunk_ignores_empty_idless_tool_call_placeholder(self, llm):
         """Some OpenAI-compatible providers emit empty id-less tool-call slots."""
 

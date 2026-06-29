@@ -17,8 +17,14 @@ if [[ ! "${DEFAULT_PACKAGE_VERSION}" =~ ^[0-9]+([.][0-9]+)*([a-zA-Z0-9.+-]*)?$ ]
 fi
 PACKAGE_VERSION="${XAGENT_PACKAGE_VERSION:-${DEFAULT_PACKAGE_VERSION}}"
 XAGENT_VERSION="${XAGENT_VERSION:-${TAG}}"
-PLATFORMS="${PLATFORMS:-linux/amd64,linux/arm64}"
 PUSH="${PUSH:-${CI:-false}}"
+if [[ -z "${PLATFORMS:-}" ]]; then
+  if [[ "${PUSH}" == "true" || "${PUSH}" == "1" ]]; then
+    PLATFORMS="linux/amd64,linux/arm64"
+  else
+    PLATFORMS="$(docker version --format '{{.Server.Os}}/{{.Server.Arch}}' 2>/dev/null || echo linux/amd64)"
+  fi
+fi
 CACHE="${CACHE:-true}"
 WRITE_CACHE="${WRITE_CACHE:-${PUSH}}"
 INLINE_CACHE="${INLINE_CACHE:-${PUSH}}"
@@ -41,6 +47,27 @@ BACKEND_BUILD_ARGS=(
   --build-arg "XAGENT_GIT_COMMIT=${GIT_COMMIT}"
   --build-arg "XAGENT_BUILD_TIME=${XAGENT_BUILD_TIME:-}"
 )
+FRONTEND_BUILD_ARGS=()
+
+if [[ -n "${APT_MIRROR:-}" ]]; then
+  BACKEND_BUILD_ARGS+=(--build-arg "APT_MIRROR=${APT_MIRROR}")
+fi
+if [[ -n "${PYPI_INDEX_URL:-}" ]]; then
+  BACKEND_BUILD_ARGS+=(--build-arg "PYPI_INDEX_URL=${PYPI_INDEX_URL}")
+fi
+if [[ -n "${UV_VERSION:-}" ]]; then
+  BACKEND_BUILD_ARGS+=(--build-arg "UV_VERSION=${UV_VERSION}")
+fi
+if [[ -n "${PYTHON_IMAGE:-}" ]]; then
+  BACKEND_BUILD_ARGS+=(--build-arg "PYTHON_IMAGE=${PYTHON_IMAGE}")
+fi
+if [[ -n "${NODE_VERSION:-}" ]]; then
+  BACKEND_BUILD_ARGS+=(--build-arg "NODE_VERSION=${NODE_VERSION}")
+  FRONTEND_BUILD_ARGS+=(--build-arg "NODE_VERSION=${NODE_VERSION}")
+fi
+if [[ -n "${NODE_IMAGE:-}" ]]; then
+  FRONTEND_BUILD_ARGS+=(--build-arg "NODE_IMAGE=${NODE_IMAGE}")
+fi
 
 if [[ "${CACHE}" == "true" || "${CACHE}" == "1" ]]; then
   if [[ "${INLINE_CACHE}" == "true" || "${INLINE_CACHE}" == "1" ]]; then
@@ -117,6 +144,7 @@ docker buildx build \
   --platform "${PLATFORMS}" \
   -f "${REPO_ROOT}/docker/Dockerfile.frontend" \
   -t "${FRONTEND_IMAGE}:${TAG}" \
+  "${FRONTEND_BUILD_ARGS[@]}" \
   "${FRONTEND_CACHE_FROM[@]}" \
   "${FRONTEND_CACHE_TO[@]}" \
   "${BUILD_OUTPUT_FLAG}" \

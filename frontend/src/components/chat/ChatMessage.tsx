@@ -11,6 +11,7 @@ import { normalizeTimestampMs } from "@/lib/time-utils";
 import { FileChip } from "./FileChip";
 import { ClarificationForm } from "./clarification-form";
 import { resolveTraceProcessStatus } from "@/lib/trace-process-status";
+import { apiRequest } from "@/lib/api-wrapper";
 
 interface ToolArgs {
   code?: string;
@@ -164,7 +165,7 @@ function ExpandableMessage({ content }: { content: string }) {
 
   if (!content) return null;
 
-  const markdownRegex = /\[([^\]]+)\]\(file:\/\/([^)]+)\)/g;
+  const markdownRegex = /\[([^\]]+)\]\(file:(?:\/\/)?([^)]+)\)/g;
   const backtickRegex = /`([^`]+)`/g;
 
   const segments: React.ReactNode[] = [];
@@ -239,6 +240,134 @@ function ExpandableMessage({ content }: { content: string }) {
         <>
           <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-secondary to-transparent pointer-events-none" />
           <div className="absolute bottom-1 left-1/2 -translate-x-1/2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-3 rounded-full shadow-sm bg-background hover:bg-accent text-xs text-foreground border"
+              onClick={() => setIsExpanded(true)}
+            >
+              <ChevronDown className="w-3.5 h-3.5 mr-1" />
+              {t("common.expand")}
+            </Button>
+          </div>
+        </>
+      )}
+      {isOverflowing && isExpanded && (
+        <div className="mt-3 flex justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 px-3 rounded-full shadow-sm bg-background hover:bg-accent text-xs text-foreground border"
+            onClick={() => setIsExpanded(false)}
+          >
+            <ChevronUp className="w-3.5 h-3.5 mr-1" />
+            {t("common.collapse")}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ExpandableMarkdownMessage({
+  content,
+  onFileClick,
+  onAgentClick,
+}: {
+  content: string;
+  onFileClick?: (filePath: string, fileName: string) => void;
+  onAgentClick?: (agentId: string, agentName: string) => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const [inlineFileContent, setInlineFileContent] = useState<string | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const { t } = useI18n();
+  const { getFileDownloadUrl } = useApp();
+  const singleMarkdownFileRef = React.useMemo(
+    () =>
+      content
+        .trim()
+        .match(
+          /^(?:结果文档已生成[:：]\s*)?\[([^\]]+\.(?:md|markdown|txt))\]\(file:(?:\/\/)?([^)]+)\)\s*$/i
+        ),
+    [content]
+  );
+  const displayContent = inlineFileContent
+    ? `${inlineFileContent}\n\n---\n${content.trim()}`
+    : content;
+
+  const updateOverflowState = useCallback(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    setIsOverflowing(el.scrollHeight > el.clientHeight + 1);
+  }, []);
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+
+    const frameId = window.requestAnimationFrame(updateOverflowState);
+    const observer = new ResizeObserver(() => updateOverflowState());
+    observer.observe(el);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      observer.disconnect();
+    };
+  }, [displayContent, isExpanded, updateOverflowState]);
+
+  useEffect(() => {
+    if (!singleMarkdownFileRef) {
+      setInlineFileContent(null);
+      return;
+    }
+
+    let cancelled = false;
+    const fileId = singleMarkdownFileRef[2];
+
+    async function loadInlineFile() {
+      try {
+        const response = await apiRequest(getFileDownloadUrl(fileId));
+        if (!response.ok) return;
+        const text = await response.text();
+        if (!cancelled && text.trim()) {
+          setInlineFileContent(text);
+        }
+      } catch {
+        if (!cancelled) {
+          setInlineFileContent(null);
+        }
+      }
+    }
+
+    void loadInlineFile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [getFileDownloadUrl, singleMarkdownFileRef]);
+
+  return (
+    <div className="relative max-w-full min-w-0">
+      <div
+        ref={contentRef}
+        className={cn(
+          "max-w-full min-w-0 transition-all duration-300",
+          !isExpanded && "max-h-[720px] overflow-hidden"
+        )}
+      >
+        <MarkdownRenderer
+          content={displayContent}
+          className="prose-sm pt-2 leading-relaxed break-words [overflow-wrap:anywhere]"
+          onAgentClick={onAgentClick}
+          onFileClick={onFileClick}
+        />
+      </div>
+      {isOverflowing && !isExpanded && (
+        <>
+          <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-background to-transparent pointer-events-none" />
+          <div className="mt-3 flex justify-center">
             <Button
               variant="outline"
               size="sm"
@@ -409,9 +538,8 @@ export function ChatMessage({
                   isUser ? (
                     <ExpandableMessage content={content} />
                   ) : (
-                    <MarkdownRenderer
+                    <ExpandableMarkdownMessage
                       content={content}
-                      className="prose-sm pt-2 leading-relaxed break-words [overflow-wrap:anywhere]"
                       onAgentClick={handleAgentClick}
                       onFileClick={handleFileClick}
                     />

@@ -1,10 +1,10 @@
-# syntax=docker/dockerfile:1.6
 ARG NODE_VERSION=22
+ARG NODE_IMAGE=node:${NODE_VERSION}-bookworm-slim
 
 ############################
 # Dependencies
 ############################
-FROM node:${NODE_VERSION}-bookworm-slim AS dependencies
+FROM ${NODE_IMAGE} AS dependencies
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -13,7 +13,7 @@ RUN npm ci
 ############################
 # Builder
 ############################
-FROM node:${NODE_VERSION}-bookworm-slim AS builder
+FROM ${NODE_IMAGE} AS builder
 WORKDIR /app
 
 # Build arguments for API URL configuration
@@ -32,7 +32,7 @@ RUN npm run build
 ############################
 # Runner - Node.js
 ############################
-FROM node:${NODE_VERSION}-bookworm-slim AS runner
+FROM ${NODE_IMAGE} AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production

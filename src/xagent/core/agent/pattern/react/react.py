@@ -31,11 +31,14 @@ from __future__ import annotations
 import asyncio
 import inspect
 import json
+import re
 from dataclasses import dataclass, replace
 from datetime import timezone
 from enum import Enum
+from pathlib import Path
 from typing import Any, cast
 
+from ....file_ref import build_workspace_file_ref
 from ...context.enrichment import (
     enrich_context_with_memory,
     enrich_context_with_skill,
@@ -65,6 +68,9 @@ REACT_DECISION_TOOL_NAME = "react_decision"
 REACT_DECISION_FINAL_ANSWER = "final_answer"
 REACT_DECISION_TOOL_CALL = "tool_call"
 UNGROUPED_TOOL_DECISION_CATEGORIES = frozenset({"basic", "other"})
+FINAL_ANSWER_ATTACHMENT_MIN_CHARS = 4000
+FINAL_ANSWER_ATTACHMENT_FILENAME = "agent_result.md"
+DSML_SENTINEL = "<｜｜DSML｜｜"
 REACT_RESPONSE_LANGUAGE_DESCRIPTION = (
     "Target natural language for user-facing prose in this ReAct response, "
     "for example English, Simplified Chinese, Traditional Chinese, or Spanish. "
@@ -384,6 +390,9 @@ class ReActPattern(AgentPattern):
                     "messages": messages,
                     "tools": tool_schemas or None,
                     "tool_choice": self.tool_choice if tool_schemas else None,
+                    "thinking": {"type": "disabled", "enable": False}
+                    if tool_schemas
+                    else None,
                 }
                 if tool_schemas:
                     answer_streamer = ReActFinalAnswerStreamer(runtime)
@@ -905,6 +914,137 @@ class ReActPattern(AgentPattern):
             return parsed if isinstance(parsed, dict) else {"input": parsed}
         return {}
 
+    def _recover_final_answer(self, args: dict[str, Any]) -> str:
+        answer = args.get("answer")
+        if isinstance(answer, str) and answer.strip():
+            return answer
+        if answer is not None and not isinstance(answer, (dict, list)):
+            answer_text = str(answer).strip()
+            if answer_text:
+                return answer_text
+
+        raw = args.get("input")
+        if isinstance(raw, str):
+            return self._recover_final_answer_from_raw_arguments(raw)
+        return ""
+
+    def _recover_final_answer_from_raw_arguments(self, raw: str) -> str:
+        raw = raw.strip()
+        if not raw:
+            return ""
+
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, dict):
+            value = parsed.get("answer") or parsed.get("input")
+            return value if isinstance(value, str) else str(value or "")
+
+        answer_match = re.search(r"""["']answer["']\s*:\s*["']""", raw)
+        if answer_match:
+            value_start = answer_match.end() - 1
+            quote = raw[value_start]
+            if quote == '"':
+                try:
+                    return json.decoder.scanstring(raw, value_start + 1)[0]
+                except ValueError:
+                    pass
+
+            fragment = raw[value_start + 1 :].strip()
+            for marker in (
+                f"{quote},",
+                f"{quote}\n",
+                f"{quote}\r\n",
+                f"{quote}}}",
+            ):
+                marker_index = fragment.rfind(marker)
+                if marker_index > 0:
+                    fragment = fragment[:marker_index]
+                    break
+            return self._decode_partial_json_string(fragment).strip()
+
+        if DSML_SENTINEL in raw:
+            return raw
+        return ""
+
+    @staticmethod
+    def _decode_partial_json_string(value: str) -> str:
+        try:
+            return json.loads(f'"{value}"')
+        except json.JSONDecodeError:
+            return (
+                value.replace("\\r\\n", "\n")
+                .replace("\\n", "\n")
+                .replace('\\"', '"')
+                .replace("\\/", "/")
+            )
+
+    def _strip_dsml_file_call(self, response: str) -> tuple[str, bool]:
+        if DSML_SENTINEL not in response:
+            return response, False
+
+        parameter_index = response.find('parameter name="content"')
+        if parameter_index >= 0:
+            content_start = response.find(">", parameter_index)
+            if content_start >= 0:
+                return response[content_start + 1 :].strip(), True
+
+        stripped_lines = [
+            line
+            for line in response.splitlines()
+            if DSML_SENTINEL not in line and not line.strip().startswith("<｜｜")
+        ]
+        cleaned = "\n".join(stripped_lines).strip()
+        return cleaned or response.strip(), True
+
+    def _prepare_final_response(
+        self,
+        *,
+        response: Any,
+        runtime: PatternRuntime,
+        force_attachment: bool = False,
+    ) -> tuple[Any, list[dict[str, Any]]]:
+        if not isinstance(response, str):
+            return response, []
+
+        cleaned, stripped_dsml = self._strip_dsml_file_call(response)
+        should_attach = (
+            force_attachment
+            or stripped_dsml
+            or len(cleaned) >= FINAL_ANSWER_ATTACHMENT_MIN_CHARS
+        )
+        if not should_attach:
+            return cleaned, []
+
+        file_ref = self._write_final_response_file(cleaned, runtime)
+        if not file_ref:
+            return cleaned, []
+
+        return cleaned, [file_ref]
+
+    def _write_final_response_file(
+        self,
+        content: str,
+        runtime: PatternRuntime,
+    ) -> dict[str, Any] | None:
+        workspace = getattr(runtime, "workspace", None)
+        output_dir = getattr(workspace, "output_dir", None)
+        if workspace is None or output_dir is None:
+            return None
+
+        try:
+            output_path = Path(output_dir) / FINAL_ANSWER_ATTACHMENT_FILENAME
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(content, encoding="utf-8")
+            return build_workspace_file_ref(
+                workspace=workspace,
+                file_path=output_path,
+                mime_type="text/markdown",
+            )
+        except Exception:
+            return None
+
     def _build_tool_schema(self, tool: Any) -> dict[str, Any]:
         name = self._tool_name(tool)
         description = self._tool_description(tool)
@@ -1080,25 +1220,47 @@ class ReActPattern(AgentPattern):
         args = tool_call.get("args", {})
 
         if name == "final_answer":
-            answer = str(args.get("answer", ""))
+            answer = self._recover_final_answer(args)
+            if not answer.strip():
+                self._record_tool_call(
+                    tool_call,
+                    status="failed",
+                    error="final_answer was called without answer content.",
+                )
+                self.status = "failed"
+                context.add_tool_result(
+                    tool_name=name,
+                    result={"error": "final_answer was empty"},
+                    tool_call_id=tool_call.get("id"),
+                )
+                return PatternResult(
+                    success=False,
+                    error="final_answer was called without answer content.",
+                    metadata={"status": self.status},
+                ).to_dict()
+
+            final_response, file_outputs = self._prepare_final_response(
+                response=answer,
+                runtime=runtime,
+            )
             self._record_tool_call(
                 tool_call,
                 status="completed",
-                result={"answer": answer},
+                result={"answer": final_response, "file_outputs": file_outputs},
             )
             self.status = "completed"
             context.add_tool_result(
                 tool_name=name,
-                result={"answer": answer},
+                result={"answer": final_response, "file_outputs": file_outputs},
                 tool_call_id=tool_call.get("id"),
             )
-            if answer:
-                context.add_assistant_message(answer)
+            context.add_assistant_message(final_response)
             return await self._finalize_success(
                 context=context,
                 llm=llm,
                 runtime=runtime,
-                response=answer,
+                response=final_response,
+                file_outputs=file_outputs,
             )
 
         if name == "send_message":
@@ -1792,16 +1954,25 @@ class ReActPattern(AgentPattern):
         llm: Any,
         runtime: PatternRuntime,
         response: Any,
+        file_outputs: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
+        if file_outputs is None:
+            response, file_outputs = self._prepare_final_response(
+                response=response,
+                runtime=runtime,
+            )
         self.pending_tool_calls = []
         self.waiting_for_user_request = None
         self.force_final_answer_next = False
         self.status = "completed"
         await runtime.checkpoint("final", context=context, pattern=self)
+        metadata: dict[str, Any] = {"response": response, "status": self.status}
+        if file_outputs:
+            metadata["file_outputs"] = file_outputs
         result = PatternResult(
             success=True,
             output=response,
-            metadata={"response": response, "status": self.status},
+            metadata=metadata,
         ).to_dict()
         await generate_and_store_react_memory(
             context=context,
@@ -1870,7 +2041,10 @@ class ReActPattern(AgentPattern):
         if result.get("success") is False:
             return False
         status = result.get("status")
-        return not (isinstance(status, str) and status.lower() == "error")
+        if isinstance(status, str) and status.lower() == "error":
+            return False
+        body = result.get("body")
+        return not (isinstance(body, str) and "event: Error" in body)
 
     def _latest_tool_result_success(self, context: Any) -> bool:
         for message in reversed(getattr(context, "messages", [])):

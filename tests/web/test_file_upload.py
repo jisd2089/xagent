@@ -182,6 +182,67 @@ class TestFileUpload:
         # File upload returns 200 on success
         assert response.status_code == 200
 
+    def test_upload_deduplicates_against_existing_database_storage_path(
+        self, client, test_db, temp_uploads_dir, auth_headers
+    ):
+        """A stale DB row should still reserve its storage_path."""
+        admin_user, test_app = test_db
+        stale_path = temp_uploads_dir / f"user_{admin_user.id}" / "repeat.txt"
+        stale_path.parent.mkdir(parents=True, exist_ok=True)
+
+        db = next(test_app.dependency_overrides[get_db]())
+        try:
+            db.add(
+                UploadedFile(
+                    file_id="stale-repeat-file-id",
+                    user_id=admin_user.id,
+                    filename="repeat.txt",
+                    storage_path=str(stale_path),
+                    mime_type="text/plain",
+                    file_size=10,
+                )
+            )
+            db.commit()
+        finally:
+            db.close()
+
+        assert not stale_path.exists()
+
+        response = client.post(
+            "/api/files/upload",
+            files={"file": ("repeat.txt", b"fresh content", "text/plain")},
+            data={"task_type": "general"},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+
+        db = next(test_app.dependency_overrides[get_db]())
+        try:
+            fresh_record = (
+                db.query(UploadedFile)
+                .filter(UploadedFile.file_id == response.json()["file_id"])
+                .one()
+            )
+            assert Path(str(fresh_record.storage_path)).name == "repeat_1.txt"
+        finally:
+            db.close()
+
+    def test_upload_with_missing_task_id_returns_404(
+        self, client, temp_uploads_dir, auth_headers
+    ):
+        del temp_uploads_dir
+
+        response = client.post(
+            "/api/files/upload",
+            files={"file": ("task.txt", b"task content", "text/plain")},
+            data={"task_type": "task", "task_id": "999999999"},
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Task not found"
+
     def test_upload_download_uses_durable_storage_after_local_file_deleted(
         self, client, temp_uploads_dir, auth_headers, monkeypatch, tmp_path
     ):

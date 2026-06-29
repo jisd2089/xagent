@@ -19,6 +19,7 @@ from xagent.web.api.chat import (
 )
 from xagent.web.api.model import model_router
 from xagent.web.models.database import Base, get_db, get_engine
+from xagent.web.schemas.chat import TaskCreateRequest
 from xagent.web.services.workforce_access import WorkforcePolicy, set_workforce_policy
 
 
@@ -177,6 +178,18 @@ def test_agent_builder_llm_overlay_preserves_resolved_task_llms():
     )
 
     assert merged == (task_llm, None, task_llm, task_compact)
+
+
+def test_task_create_request_sync_defaults_to_false():
+    request = TaskCreateRequest(title="hello")
+
+    assert request.sync is False
+
+
+def test_task_create_request_accepts_sync_flag():
+    request = TaskCreateRequest(title="hello", sync=True)
+
+    assert request.sync is True
 
 
 def test_agent_builder_llm_overlay_uses_accessible_agent_llms():

@@ -109,6 +109,8 @@ class AgentRunner:
             interrupt_checker=interrupt_checker,
             outbound_message_handler=self.outbound_message_handler,
         )
+        if runtime.workspace is None:
+            runtime.workspace = getattr(context, "_runtime_workspace", None)
         self._active_controls[execution_id] = ExecutionControl(
             runtime=runtime,
             task=task,
@@ -532,6 +534,7 @@ class AgentRunner:
             context.metadata.update(metadata)
         if task:
             context.metadata.setdefault("task", task)
+        setattr(context, "_runtime_workspace", workspace)
         request_context = (
             metadata.get("request_context") if isinstance(metadata, dict) else None
         )

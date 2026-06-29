@@ -587,9 +587,21 @@ class OpenAICompatibleLLM(BaseLLM):
     ) -> Dict[str, Any]:
         """Return provider-specific extra_body for disabling thinking."""
         updated_extra_body = dict(extra_body or {})
+        if self._uses_deepseek_thinking_payload:
+            updated_extra_body["thinking"] = {"type": "disabled"}
+            updated_extra_body.pop("enable_thinking", None)
+            return updated_extra_body
+
         if self.supports_enable_thinking_param:
             updated_extra_body["enable_thinking"] = False
         return updated_extra_body
+
+    @property
+    def _uses_deepseek_thinking_payload(self) -> bool:
+        """Whether this OpenAI-compatible endpoint expects DeepSeek thinking payloads."""
+        model_name = (self._model_name or "").lower()
+        base_url = (self.base_url or "").lower()
+        return "deepseek" in model_name or "deepseek" in base_url
 
     def _attach_reasoning_content_to_raw(
         self,

@@ -369,6 +369,14 @@ async def test_runtime_stream_final_answer_falls_back_to_chat_without_events() -
     assert outbound.events == []
 
 
+def test_runtime_treats_sse_error_body_as_tool_failure() -> None:
+    runtime = PatternRuntime()
+    body = 'event: Error\ndata: {"error_message": "Invalid URL"}\n\n'
+
+    assert runtime._tool_result_success({"status": "success", "body": body}) is False
+    assert str(runtime._tool_result_error({"body": body})) == "Invalid URL"
+
+
 @pytest.mark.asyncio
 async def test_runtime_stream_final_answer_emits_error_terminal_event() -> None:
     outbound = OutboundCollector()

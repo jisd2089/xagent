@@ -211,6 +211,29 @@ PLATFORMS=linux/arm64 ./publish.sh
 - local default (`PUSH=false`) -> local build only (`--load`, single platform)
 - local multi-platform without push will fail fast with a hint
 
+### Server Rebuild and Deploy
+
+Use this flow when the server builds images locally and deploys them with the
+root `docker-compose.yml`. The compose file defaults to `20260629.1`, and the
+same file can be reused for later patch tags by setting `XAGENT_IMAGE_TAG`.
+
+```bash
+TAG=20260629.1
+
+# Optional mirrors for restricted or unstable networks.
+export APT_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/debian
+# export PYPI_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+# export PYTHON_IMAGE=registry.example.com/library/python:3.11-bookworm
+# export NODE_IMAGE=registry.example.com/library/node:22-bookworm-slim
+
+./docker/publish.sh "$TAG"
+
+XAGENT_IMAGE_TAG="$TAG" docker compose config --quiet
+XAGENT_IMAGE_TAG="$TAG" docker compose up -d --force-recreate \
+  backend worker scheduler frontend
+docker compose ps
+```
+
 Or manually:
 
 ```bash
