@@ -38,6 +38,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, cast
 
+from .....config import get_tool_call_timeout_seconds
 from ....file_ref import build_workspace_file_ref
 from ...context.enrichment import (
     enrich_context_with_memory,
@@ -70,6 +71,7 @@ REACT_DECISION_TOOL_CALL = "tool_call"
 UNGROUPED_TOOL_DECISION_CATEGORIES = frozenset({"basic", "other"})
 FINAL_ANSWER_ATTACHMENT_MIN_CHARS = 4000
 FINAL_ANSWER_ATTACHMENT_FILENAME = "agent_result.md"
+REUSABLE_TOOL_RESULT_NAMES = frozenset({"read_file"})
 DSML_SENTINEL = "<｜｜DSML｜｜"
 REACT_RESPONSE_LANGUAGE_DESCRIPTION = (
     "Target natural language for user-facing prose in this ReAct response, "
@@ -2118,9 +2120,47 @@ class ReActPattern(AgentPattern):
         self._record_tool_call(tool_call, status="running")
         recorded_terminal = False
         try:
+            has_cached_result, cached_result = self._cached_reusable_tool_result(
+                tool_call
+            )
+            if has_cached_result:
+                await runtime.on_tool_start(tool_call=tool_call)
+                self._record_tool_call(
+                    tool_call,
+                    status="completed",
+                    result=cached_result,
+                )
+                recorded_terminal = True
+                await runtime.on_tool_end(tool_call=tool_call, result=cached_result)
+                return cached_result
+
             await runtime.on_tool_start(tool_call=tool_call)
             try:
-                result = await self._execute_tool(tool_call, tools)
+                timeout_seconds = get_tool_call_timeout_seconds()
+                result = await asyncio.wait_for(
+                    self._execute_tool(tool_call, tools),
+                    timeout=timeout_seconds,
+                )
+            except asyncio.TimeoutError as exc:
+                error_message = (
+                    f"Tool call timed out after {timeout_seconds} seconds"
+                )
+                error_result = {
+                    "success": False,
+                    "error": error_message,
+                    "tool_name": tool_call["name"],
+                }
+                await runtime.on_tool_error(
+                    tool_call=tool_call, error=exc, result=error_result
+                )
+                self._record_tool_call(
+                    tool_call,
+                    status="failed",
+                    result=error_result,
+                    error=error_message,
+                )
+                recorded_terminal = True
+                return error_result
             except Exception as exc:  # noqa: BLE001
                 error_result = {
                     "success": False,
@@ -2173,6 +2213,27 @@ class ReActPattern(AgentPattern):
                     status="failed",
                     error="tool execution aborted before completion",
                 )
+
+    def _cached_reusable_tool_result(
+        self, tool_call: dict[str, Any]
+    ) -> tuple[bool, Any]:
+        if str(tool_call.get("name") or "") not in REUSABLE_TOOL_RESULT_NAMES:
+            return False, None
+
+        tool_call_id = str(tool_call.get("id") or "")
+        args_hash = self._args_hash(dict(tool_call.get("args", {})))
+        for record in reversed(list(self.tool_ledger.values())):
+            if record.tool_call_id == tool_call_id:
+                continue
+            if record.tool_name != tool_call["name"]:
+                continue
+            if record.args_hash != args_hash:
+                continue
+            if record.status == "completed":
+                return True, record.result
+            if record.status == "failed":
+                return False, None
+        return False, None
 
     def _with_runtime_step(
         self, tool_call: dict[str, Any], runtime: PatternRuntime

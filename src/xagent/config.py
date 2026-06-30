@@ -63,6 +63,9 @@ WEB_SEARCH_PROVIDER = "XAGENT_WEB_SEARCH_PROVIDER"
 WEB_CRAWL_TLS_IMPERSONATE = "XAGENT_WEB_CRAWL_TLS_IMPERSONATE"
 TOOL_PARALLEL_ENABLED = "XAGENT_TOOL_PARALLEL_ENABLED"
 TOOL_MAX_CONCURRENCY = "XAGENT_TOOL_MAX_CONCURRENCY"
+TOOL_CALL_TIMEOUT_SECONDS = "XAGENT_TOOL_CALL_TIMEOUT_SECONDS"
+DOCUMENT_PARSE_TIMEOUT_SECONDS = "XAGENT_DOCUMENT_PARSE_TIMEOUT_SECONDS"
+READ_FILE_MAX_CHARS = "XAGENT_READ_FILE_MAX_CHARS"
 REDIS_URL = "XAGENT_REDIS_URL"
 HOT_PATH_CACHE_ENABLED = "XAGENT_HOT_PATH_CACHE_ENABLED"
 HOT_PATH_CACHE_TTL_SECONDS = "XAGENT_HOT_PATH_CACHE_TTL_SECONDS"
@@ -244,6 +247,21 @@ def _get_positive_int_env(env_var: str, default: int, *, minimum: int = 1) -> in
     return parsed
 
 
+def _get_non_negative_int_env(env_var: str, default: int) -> int:
+    value = os.getenv(env_var)
+    if value is None:
+        return default
+    try:
+        parsed = int(value)
+    except ValueError:
+        logger.warning("Invalid %s=%r; falling back to %s", env_var, value, default)
+        return default
+    if parsed < 0:
+        logger.warning("Invalid %s=%r; falling back to %s", env_var, value, default)
+        return default
+    return parsed
+
+
 def _get_bool_env(env_var: str, default: bool) -> bool:
     value = os.getenv(env_var)
     if value is None:
@@ -372,6 +390,39 @@ def get_tool_max_concurrency() -> int:
         The per-batch concurrency cap (>= 1).
     """
     return _get_positive_int_env(TOOL_MAX_CONCURRENCY, 3)
+
+
+def get_tool_call_timeout_seconds() -> int:
+    """Maximum wall-clock seconds for a single ReAct tool invocation.
+
+    Priority:
+        1. XAGENT_TOOL_CALL_TIMEOUT_SECONDS environment variable
+        2. Default ``120``
+
+    Invalid or non-positive values fall back to the default.
+    """
+    return _get_positive_int_env(TOOL_CALL_TIMEOUT_SECONDS, 120)
+
+
+def get_document_parse_timeout_seconds() -> int:
+    """Maximum wall-clock seconds for one document parser attempt.
+
+    Priority:
+        1. XAGENT_DOCUMENT_PARSE_TIMEOUT_SECONDS environment variable
+        2. Default ``45``
+
+    Invalid or non-positive values fall back to the default.
+    """
+    return _get_positive_int_env(DOCUMENT_PARSE_TIMEOUT_SECONDS, 45)
+
+
+def get_read_file_max_chars() -> int:
+    """Maximum characters returned by read_file.
+
+    A value of ``0`` disables truncation. Negative and non-integer values fall
+    back to the default.
+    """
+    return _get_non_negative_int_env(READ_FILE_MAX_CHARS, 100_000)
 
 
 def get_celery_broker_url() -> str | None:

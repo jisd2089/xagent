@@ -31,6 +31,10 @@ class WriteFileArgs(BaseModel):
     content: str
 
 
+class ReadFileArgs(BaseModel):
+    file_path: str
+
+
 class SearchArgs(BaseModel):
     query: str
     count: int = 10
@@ -77,6 +81,37 @@ class FakeWriteFileTool:
             "relative_path": f"output/{path.split('/')[-1]}",
             "file_path": f"/workspace/output/{path.split('/')[-1]}",
         }
+
+
+class FakeReadFileTool:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+        class Metadata:
+            name = "read_file"
+            description = "Read file content in workspace."
+
+        self.metadata = Metadata()
+
+    def args_type(self) -> type[BaseModel]:
+        return ReadFileArgs
+
+    async def run_json_async(self, args: dict[str, Any]) -> Any:
+        self.calls.append(args)
+        return f"content for {args['file_path']}"
+
+
+class FakeSlowTool:
+    def __init__(self) -> None:
+        class Metadata:
+            name = "slow_tool"
+            description = "Slow test tool."
+
+        self.metadata = Metadata()
+
+    async def run_json_async(self, args: dict[str, Any]) -> Any:
+        await asyncio.sleep(10)
+        return {"success": True}
 
 
 class FakeWorkspace:
@@ -844,6 +879,49 @@ async def test_react_passes_runtime_step_to_browser_tool_call() -> None:
             "_xagent_step_id": "render_english_poster",
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_react_reuses_identical_read_file_result() -> None:
+    pattern = ReActPattern()
+    runtime = PatternRuntime()
+    tool = FakeReadFileTool()
+    args = {"file_path": "report.pdf"}
+
+    first = await pattern._execute_tool_safely(
+        {"id": "call-1", "name": "read_file", "args": args},
+        [tool],
+        runtime,
+    )
+    second = await pattern._execute_tool_safely(
+        {"id": "call-2", "name": "read_file", "args": args},
+        [tool],
+        runtime,
+    )
+
+    assert first == "content for report.pdf"
+    assert second == first
+    assert tool.calls == [args]
+    assert pattern.tool_ledger["call-2"].status == "completed"
+
+
+@pytest.mark.asyncio
+async def test_react_tool_call_timeout(monkeypatch) -> None:
+    monkeypatch.setattr(
+        react_module,
+        "get_tool_call_timeout_seconds",
+        lambda: 0.01,
+    )
+
+    result = await ReActPattern()._execute_tool_safely(
+        {"id": "call-slow", "name": "slow_tool", "args": {}},
+        [FakeSlowTool()],
+        PatternRuntime(),
+    )
+
+    assert result["success"] is False
+    assert result["tool_name"] == "slow_tool"
+    assert "timed out" in result["error"]
 
 
 @pytest.mark.asyncio

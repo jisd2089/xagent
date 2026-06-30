@@ -118,6 +118,24 @@ class TestExtractTextFromDocument:
             assert result == "Sample document content"
             assert "Sample document content" in result
 
+    def test_pdf_uses_lightweight_text_parser_first(self, mock_parse_result):
+        """PDF read_file should avoid the heavyweight OCR parser unless needed."""
+        parser_args = []
+
+        async def parse_side_effect(args):
+            parser_args.append(args)
+            return mock_parse_result
+
+        with patch(
+            "xagent.core.tools.core.workspace_file_tool.parse_document",
+            new=AsyncMock(side_effect=parse_side_effect),
+        ):
+            result = extract_text_from_document("test.pdf")
+
+        assert result == "Sample document content"
+        assert parser_args[0].parser_name == "pymupdf"
+        assert parser_args[0].capabilities.capability_figure is False
+
     def test_extract_text_from_docx_success(self, mock_parse_result):
         """Test successful text extraction from DOCX."""
         with patch(
@@ -275,6 +293,36 @@ class TestWorkspaceFileOperationsDocumentParsing:
             content = ops.read_file("test.pdf")
             assert content == "Extracted PDF content"
 
+    def test_read_pdf_file_uses_workspace_cache(self, tmp_path):
+        """Repeated reads of the same parsed document should not parse again."""
+        workspace = TaskWorkspace("test_task", str(tmp_path))
+        ops = WorkspaceFileOperations(workspace)
+
+        pdf_path = workspace.input_dir / "test.pdf"
+        pdf_path.write_bytes(b"%PDF-1.4 fake pdf content")
+
+        mock_result = MagicMock()
+        mock_segment = MagicMock()
+        mock_segment.text = "Cached PDF content"
+        mock_result.text_segments = [mock_segment]
+        mock_result.tables = []
+        mock_result.figures = []
+        calls = 0
+
+        async def parse_side_effect(args):
+            nonlocal calls
+            calls += 1
+            return mock_result
+
+        with patch(
+            "xagent.core.tools.core.workspace_file_tool.parse_document",
+            new=AsyncMock(side_effect=parse_side_effect),
+        ):
+            assert ops.read_file("test.pdf") == "Cached PDF content"
+            assert ops.read_file("test.pdf") == "Cached PDF content"
+
+        assert calls == 1
+
     def test_read_docx_file(self, tmp_path):
         """Test reading a DOCX file through workspace operations."""
         workspace = TaskWorkspace("test_task", str(tmp_path))
@@ -358,6 +406,19 @@ class TestWorkspaceFileOperationsDocumentParsing:
 
         content = ops.read_file("test.txt")
         assert content == "Regular text content"
+
+    def test_read_file_truncates_large_content(self, tmp_path, monkeypatch):
+        workspace = TaskWorkspace("test_task", str(tmp_path))
+        ops = WorkspaceFileOperations(workspace)
+
+        txt_path = workspace.input_dir / "large.txt"
+        txt_path.write_text("abcdefghij", encoding="utf-8")
+        monkeypatch.setenv("XAGENT_READ_FILE_MAX_CHARS", "5")
+
+        content = ops.read_file("large.txt")
+
+        assert content.startswith("abcde")
+        assert "read_file output truncated to 5 characters" in content
 
     def test_read_file_encoding_fallback(self, tmp_path):
         """Test encoding fallback mechanism for regular files."""

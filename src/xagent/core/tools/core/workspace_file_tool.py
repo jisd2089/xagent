@@ -7,6 +7,8 @@ It focuses on pure file operations without tool framework dependencies.
 
 import asyncio
 import csv
+import hashlib
+import json
 import logging
 import os
 import shutil
@@ -16,6 +18,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
+from ....config import get_document_parse_timeout_seconds, get_read_file_max_chars
 from ...file_ref import build_workspace_file_ref, safe_asset_filename
 from ...workspace import TaskWorkspace
 from .document_parser import DocumentCapabilities, DocumentParseArgs, parse_document
@@ -36,7 +39,67 @@ def is_document_file(file_path: str) -> bool:
     return Path(file_path).suffix.lower() in document_extensions
 
 
-def extract_text_from_document(file_path: str) -> str:
+def _document_text_cache_path(
+    file_path: str,
+    *,
+    cache_dir: Path | None,
+    parser_plan: list[str],
+) -> Path | None:
+    if cache_dir is None:
+        return None
+
+    path = Path(file_path).resolve()
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+
+    cache_payload = {
+        "path": str(path),
+        "size": stat.st_size,
+        "mtime_ns": stat.st_mtime_ns,
+        "parser_plan": parser_plan,
+        "version": 1,
+    }
+    cache_key = hashlib.sha256(
+        json.dumps(cache_payload, sort_keys=True).encode("utf-8")
+    ).hexdigest()
+    return cache_dir / f"{cache_key}.txt"
+
+
+def _read_document_text_cache(cache_path: Path | None) -> str | None:
+    if cache_path is None or not cache_path.exists():
+        return None
+    try:
+        return cache_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        logger.debug("Failed to read document text cache %s: %s", cache_path, exc)
+        return None
+
+
+def _write_document_text_cache(cache_path: Path | None, content: str) -> None:
+    if cache_path is None:
+        return
+    try:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(content, encoding="utf-8")
+    except OSError as exc:
+        logger.debug("Failed to write document text cache %s: %s", cache_path, exc)
+
+
+def _truncate_read_file_content(content: str) -> str:
+    max_chars = get_read_file_max_chars()
+    if max_chars <= 0 or len(content) <= max_chars:
+        return content
+    marker = (
+        "\n\n[read_file output truncated to "
+        f"{max_chars} characters from {len(content)}. "
+        "Use start_line/end_line to read a smaller range.]"
+    )
+    return content[:max_chars] + marker
+
+
+def extract_text_from_document(file_path: str, *, cache_dir: Path | None = None) -> str:
     """Extract text content from a document file using document parser with fallback."""
     file_ext = Path(file_path).suffix.lower()
 
@@ -44,7 +107,7 @@ def extract_text_from_document(file_path: str) -> str:
     parsers_to_try = []
 
     if file_ext == ".pdf":
-        parsers_to_try = ["deepdoc", "unstructured", "pypdf", "pdfplumber", "pymupdf"]
+        parsers_to_try = ["pymupdf", "pypdf", "pdfplumber", "unstructured", "deepdoc"]
     elif file_ext == ".docx":
         parsers_to_try = ["deepdoc"]  # Only DeepDoc supports DOCX
     elif file_ext in [".xlsx", ".xls", ".csv"]:
@@ -54,7 +117,18 @@ def extract_text_from_document(file_path: str) -> str:
     else:
         parsers_to_try = ["deepdoc"]
 
+    cache_path = _document_text_cache_path(
+        file_path,
+        cache_dir=cache_dir,
+        parser_plan=parsers_to_try,
+    )
+    cached_content = _read_document_text_cache(cache_path)
+    if cached_content is not None:
+        logger.debug("Using cached document text for %s", file_path)
+        return cached_content
+
     last_error: Exception | None = None
+    timeout_seconds = get_document_parse_timeout_seconds()
     for parser_name in parsers_to_try:
         try:
             logger.debug(f"Trying to parse {file_path} with {parser_name}")
@@ -69,14 +143,19 @@ def extract_text_from_document(file_path: str) -> str:
                     parser_name=parser_name,
                     capabilities=DocumentCapabilities(
                         capability_text=True,
-                        capability_figure=True,
+                        capability_figure=False,
                         requires_full_text_result=True,
                         requires_segmented_result=False,
                         use_local_parser=True,
                     ),
                 )
 
-                result = loop.run_until_complete(parse_document(parse_args))
+                result = loop.run_until_complete(
+                    asyncio.wait_for(
+                        parse_document(parse_args),
+                        timeout=timeout_seconds,
+                    )
+                )
 
                 # Extract text from all segments
                 text_parts = []
@@ -101,6 +180,7 @@ def extract_text_from_document(file_path: str) -> str:
 
                 if text_content.strip():
                     logger.info(f"Successfully parsed {file_path} with {parser_name}")
+                    _write_document_text_cache(cache_path, text_content)
                     return text_content
                 else:
                     logger.warning(
@@ -146,6 +226,7 @@ def extract_text_from_document(file_path: str) -> str:
                 logger.info(
                     f"Successfully extracted text from {file_path} using python-docx fallback"
                 )
+                _write_document_text_cache(cache_path, content)
                 return content
 
         except Exception as docx_error:
@@ -252,19 +333,24 @@ class WorkspaceFileOperations:
         # Check if this is a document file that requires special parsing
         if is_document_file(str(resolved_path)):
             logger.debug("Detected document file, using document parser")
-            content = extract_text_from_document(str(resolved_path))
+            content = extract_text_from_document(
+                str(resolved_path),
+                cache_dir=self.workspace.temp_dir / ".document_text_cache",
+            )
             logger.debug(
                 "Successfully extracted %d characters from document %s",
                 len(content),
                 resolved_path,
             )
             if start_line is not None or end_line is not None:
-                return _slice_lines(
-                    content,
-                    start_line=start_line,
-                    end_line=end_line,
+                return _truncate_read_file_content(
+                    _slice_lines(
+                        content,
+                        start_line=start_line,
+                        end_line=end_line,
+                    )
                 )
-            return content
+            return _truncate_read_file_content(content)
 
         # Try to read as regular text file
         try:
@@ -280,7 +366,7 @@ class WorkspaceFileOperations:
                 logger.debug(
                     "Successfully read %d bytes from %s", len(content), resolved_path
                 )
-                return content
+                return _truncate_read_file_content(content)
         except UnicodeDecodeError:
             # If text reading fails with encoding error, try common encodings
             for fallback_encoding in ["utf-8-sig", "latin-1", "cp1252"]:
@@ -300,7 +386,7 @@ class WorkspaceFileOperations:
                             resolved_path,
                             fallback_encoding,
                         )
-                        return content
+                        return _truncate_read_file_content(content)
                 except UnicodeDecodeError:
                     continue
 

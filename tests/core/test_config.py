@@ -18,6 +18,7 @@ from xagent.config import (
     CELERY_ENABLED,
     CELERY_RESULT_BACKEND,
     DATABASE_URL,
+    DOCUMENT_PARSE_TIMEOUT_SECONDS,
     EXTERNAL_SKILLS_LIBRARY_DIRS,
     EXTERNAL_UPLOAD_DIRS,
     FILE_DELIVERY_ACCEL_REDIRECT_ENABLED,
@@ -38,6 +39,7 @@ from xagent.config import (
     PASSWORD_RESET_EXPIRE_MINUTES,
     PREVIEW_TMP_DIR,
     REDIS_URL,
+    READ_FILE_MAX_CHARS,
     SANDBOX_CPUS,
     SANDBOX_ENV,
     SANDBOX_HOST_PROJECT_ROOT,
@@ -54,6 +56,7 @@ from xagent.config import (
     SMTP_USE_TLS,
     SMTP_USERNAME,
     STORAGE_ROOT,
+    TOOL_CALL_TIMEOUT_SECONDS,
     TRIGGER_DISPATCHER_BATCH_SIZE,
     TRIGGER_DISPATCHER_ENABLED,
     TRIGGER_DISPATCHER_INTERVAL_SECONDS,
@@ -76,6 +79,7 @@ from xagent.config import (
     get_database_url,
     get_default_sqlite_db_path,
     get_default_task_execution_mode,
+    get_document_parse_timeout_seconds,
     get_external_skills_dirs,
     get_external_upload_dirs,
     get_file_delivery_accel_redirect_enabled,
@@ -95,6 +99,7 @@ from xagent.config import (
     get_openrouter_official_providers_only,
     get_password_reset_expire_minutes,
     get_preview_tmp_dir,
+    get_read_file_max_chars,
     get_redis_url,
     get_sandbox_cpus,
     get_sandbox_env,
@@ -112,6 +117,7 @@ from xagent.config import (
     get_smtp_use_tls,
     get_smtp_username,
     get_storage_root,
+    get_tool_call_timeout_seconds,
     get_trigger_dispatcher_batch_size,
     get_trigger_dispatcher_enabled,
     get_trigger_dispatcher_interval_seconds,
@@ -166,6 +172,11 @@ class TestEnvironmentVariableConstants:
 
     def test_web_crawl_tls_impersonate_constant(self):
         assert WEB_CRAWL_TLS_IMPERSONATE == "XAGENT_WEB_CRAWL_TLS_IMPERSONATE"
+
+    def test_tool_safety_constants(self):
+        assert TOOL_CALL_TIMEOUT_SECONDS == "XAGENT_TOOL_CALL_TIMEOUT_SECONDS"
+        assert DOCUMENT_PARSE_TIMEOUT_SECONDS == "XAGENT_DOCUMENT_PARSE_TIMEOUT_SECONDS"
+        assert READ_FILE_MAX_CHARS == "XAGENT_READ_FILE_MAX_CHARS"
 
     def test_openrouter_official_providers_only_constant(self):
         assert (
@@ -1229,6 +1240,52 @@ class TestToolConcurrencyConfig:
         assert get_tool_max_concurrency() == 3
         monkeypatch.setenv("XAGENT_TOOL_MAX_CONCURRENCY", "0")
         assert get_tool_max_concurrency() == 3
+
+
+class TestToolSafetyConfig:
+    def test_tool_call_timeout_default(self, monkeypatch):
+        monkeypatch.delenv(TOOL_CALL_TIMEOUT_SECONDS, raising=False)
+
+        assert get_tool_call_timeout_seconds() == 120
+
+    def test_tool_call_timeout_env(self, monkeypatch):
+        monkeypatch.setenv(TOOL_CALL_TIMEOUT_SECONDS, "30")
+
+        assert get_tool_call_timeout_seconds() == 30
+
+    def test_tool_call_timeout_invalid_falls_back(self, monkeypatch):
+        monkeypatch.setenv(TOOL_CALL_TIMEOUT_SECONDS, "0")
+        assert get_tool_call_timeout_seconds() == 120
+
+        monkeypatch.setenv(TOOL_CALL_TIMEOUT_SECONDS, "not-a-number")
+        assert get_tool_call_timeout_seconds() == 120
+
+    def test_document_parse_timeout_default(self, monkeypatch):
+        monkeypatch.delenv(DOCUMENT_PARSE_TIMEOUT_SECONDS, raising=False)
+
+        assert get_document_parse_timeout_seconds() == 45
+
+    def test_document_parse_timeout_env(self, monkeypatch):
+        monkeypatch.setenv(DOCUMENT_PARSE_TIMEOUT_SECONDS, "10")
+
+        assert get_document_parse_timeout_seconds() == 10
+
+    def test_read_file_max_chars_default(self, monkeypatch):
+        monkeypatch.delenv(READ_FILE_MAX_CHARS, raising=False)
+
+        assert get_read_file_max_chars() == 100_000
+
+    def test_read_file_max_chars_zero_disables(self, monkeypatch):
+        monkeypatch.setenv(READ_FILE_MAX_CHARS, "0")
+
+        assert get_read_file_max_chars() == 0
+
+    def test_read_file_max_chars_invalid_falls_back(self, monkeypatch):
+        monkeypatch.setenv(READ_FILE_MAX_CHARS, "-1")
+        assert get_read_file_max_chars() == 100_000
+
+        monkeypatch.setenv(READ_FILE_MAX_CHARS, "not-a-number")
+        assert get_read_file_max_chars() == 100_000
 
 
 class TestSandboxConcurrencyConfig:
