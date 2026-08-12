@@ -1,0 +1,106 @@
+{
+  "case_id": "loop1_quality_engineer_025",
+  "loop_type": "loop1",
+  "source_type": "synthetic_case",
+  "synthetic": true,
+  "privacy_level": "public",
+  "tags": {
+    "job_family": "quality_engineer",
+    "experience_band": "0-3",
+    "super_stage": "Exploration",
+    "claim_risk": "low_risk_control",
+    "interviewer_role": "HR",
+    "bias_type": "none",
+    "compliance_risk": "none",
+    "hiring_urgency": "High",
+    "competency_focus": "Hard",
+    "difficulty": "easy"
+  },
+  "input": {
+    "job_description": {
+      "job_id": "quality_engineer_job_025",
+      "title": "Quality Engineer",
+      "responsibilities": [
+        "分析岗位关键任务并形成可验证交付",
+        "跨团队协作解决复杂问题",
+        "用事实和指标验证结果"
+      ],
+      "required_competencies": [
+        "hard_skill_match",
+        "constructive_collaboration",
+        "ownership",
+        "learning_agility",
+        "resilience_review"
+      ]
+    },
+    "candidate_profile": {
+      "candidate_id": "synthetic_candidate_025",
+      "experience_band": "0-3",
+      "super_stage": "Exploration",
+      "education_summary": "synthetic anonymized profile",
+      "work_experiences": [
+        "负责复杂系统排查、质量验证和跨团队问题闭环"
+      ],
+      "skills": [
+        "problem_analysis",
+        "documentation",
+        "cross_team_coordination"
+      ]
+    },
+    "candidate_claims": [
+      {
+        "claim_id": "claim_001",
+        "claim_text": "候选人能清楚说明个人负责模块、指标口径、约束和复盘。",
+        "risk_type": "low_risk_control"
+      }
+    ],
+    "interview_transcript": [
+      {
+        "speaker": "interviewer",
+        "text": "请介绍你最能体现岗位能力的项目。"
+      },
+      {
+        "speaker": "candidate",
+        "text": "候选人能清楚说明个人负责模块、指标口径、约束和复盘。"
+      }
+    ],
+    "interviewer_feedback": [
+      {
+        "role": "HR",
+        "text": "面试官评价：候选人回答需要进一步验证，暂未发现明显主观标签。",
+        "bias_type": "none"
+      }
+    ]
+  },
+  "expected_output": {
+    "claim_risks": [
+      "low_risk_control"
+    ],
+    "required_probes": [
+      "5_minute_slice",
+      "counterfactual_probe",
+      "failure_review_probe"
+    ],
+    "bias_audit": [],
+    "compliance_rewrites": [],
+    "bars_dimensions": [
+      "constructive_collaboration",
+      "ownership",
+      "learning_agility",
+      "hard_skill_match",
+      "resilience_review"
+    ],
+    "decision_allowed_values": [
+      "录取",
+      "降级录取",
+      "备选池挂起",
+      "拒绝"
+    ]
+  },
+  "quality": {
+    "passed": true,
+    "issues": []
+  },
+  "created_at": "2026-07-02T00:00:00Z",
+  "version": "v1"
+}

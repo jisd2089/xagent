@@ -1,0 +1,25 @@
+{
+  "prediction_hits": [
+    "hard_skill_match",
+    "ownership"
+  ],
+  "prediction_misses": [],
+  "calibration_actions": [
+    "cross_team_conflict_probe",
+    "feedback_absorption_probe"
+  ],
+  "next_batch_strategy": {
+    "weight_changes": {
+      "constructive_collaboration": 0.1,
+      "hard_skill_match": -0.05
+    },
+    "rules_not_to_change": [
+      "do_not_remove_hard_skill_probes"
+    ]
+  },
+  "sample_size_warning": "sample_too_small_for_global_rule",
+  "quality_gate": {
+    "passed": true,
+    "issues": []
+  }
+}

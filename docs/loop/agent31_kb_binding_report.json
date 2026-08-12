@@ -1,0 +1,141 @@
+{
+  "generated_at": "2026-07-02T06:28:41.670398+00:00",
+  "api_base": "http://localhost",
+  "agent_id": 31,
+  "collection": "interview_psychologist_loop_kb",
+  "docs_dir": "docs/loop",
+  "import_manifest_path": "docs/loop/agent31_kb_import_manifest.json",
+  "force_upload": false,
+  "source_files": [
+    "docs/loop/deep_research_data_inventory.md",
+    "docs/loop/recruitment_compliance_guardrails.md",
+    "docs/loop/structured_interview_bei_bars_library.md",
+    "docs/loop/software_industrial_ai_competency_library.md",
+    "docs/loop/loop_calibration_seed_dataset.md",
+    "docs/loop/local_seed_case_anonymized.md",
+    "docs/loop/three_loops_auto_data_generation_spec.md",
+    "docs/loop/interview_psychologist_agent_three_loops_design.md",
+    "docs/loop/interview_psychologist_agent_three_loops_requirements.md",
+    "docs/loop/three_loops_implementation_design.md",
+    "docs/loop/agent31_deep_research_test_prompts.md"
+  ],
+  "collections_before": [
+    "ai_llm_companies_wiki",
+    "crm_consultation_records",
+    "interview_psychologist_loop_kb",
+    "kb_assignment_rubrics",
+    "kb_brand_guidelines",
+    "kb_career_database",
+    "kb_company_faq",
+    "kb_course_materials",
+    "kb_interview_rubrics",
+    "kb_programming_courses",
+    "kb_question_bank",
+    "kb_sales_scripts",
+    "test_small"
+  ],
+  "collections_after": [
+    "ai_llm_companies_wiki",
+    "crm_consultation_records",
+    "interview_psychologist_loop_kb",
+    "kb_assignment_rubrics",
+    "kb_brand_guidelines",
+    "kb_career_database",
+    "kb_company_faq",
+    "kb_course_materials",
+    "kb_interview_rubrics",
+    "kb_programming_courses",
+    "kb_question_bank",
+    "kb_sales_scripts",
+    "test_small"
+  ],
+  "collection_visible": true,
+  "upload": {
+    "total": 11,
+    "succeeded": 0,
+    "skipped": 11,
+    "failed": 0,
+    "results": [
+      {
+        "status": "skipped",
+        "file": "docs/loop/deep_research_data_inventory.md",
+        "reason": "same sha256 already imported into collection",
+        "sha256": "eb7828772ffa8dcb142de8b67d354db6465107b0881b2fd6be90642231981916"
+      },
+      {
+        "status": "skipped",
+        "file": "docs/loop/recruitment_compliance_guardrails.md",
+        "reason": "same sha256 already imported into collection",
+        "sha256": "80e9c345628b1d0a28199ddd886ce8fe2583f244f11b9312b6d7d4d3ffe1c04e"
+      },
+      {
+        "status": "skipped",
+        "file": "docs/loop/structured_interview_bei_bars_library.md",
+        "reason": "same sha256 already imported into collection",
+        "sha256": "1946c356f7de531edb1382e12f1232977606943ef96d3df0f34fa24105c06bb6"
+      },
+      {
+        "status": "skipped",
+        "file": "docs/loop/software_industrial_ai_competency_library.md",
+        "reason": "same sha256 already imported into collection",
+        "sha256": "b960f252cac6fb5b93af0de8fc2468e1ff6091d87f93c87b22688adba4119bb5"
+      },
+      {
+        "status": "skipped",
+        "file": "docs/loop/loop_calibration_seed_dataset.md",
+        "reason": "same sha256 already imported into collection",
+        "sha256": "1def73c21493eaabf2ff1e1b50a2feea0a61cf2a7c5fb73afb0a913b7c2f5aee"
+      },
+      {
+        "status": "skipped",
+        "file": "docs/loop/local_seed_case_anonymized.md",
+        "reason": "same sha256 already imported into collection",
+        "sha256": "385b93b2619b0479b42b1287cdd18320709cd49e31518f58d9ef8e7bbe5037a2"
+      },
+      {
+        "status": "skipped",
+        "file": "docs/loop/three_loops_auto_data_generation_spec.md",
+        "reason": "same sha256 already imported into collection",
+        "sha256": "90bf12b1ff7f2d5bf2cc85fb1f4fc3d5b20dfcd478b37242dc7aaa000a2eefda"
+      },
+      {
+        "status": "skipped",
+        "file": "docs/loop/interview_psychologist_agent_three_loops_design.md",
+        "reason": "same sha256 already imported into collection",
+        "sha256": "e384a12acf8fecd19def066137a2e583db87d46927946d9377ace7dea34a9574"
+      },
+      {
+        "status": "skipped",
+        "file": "docs/loop/interview_psychologist_agent_three_loops_requirements.md",
+        "reason": "same sha256 already imported into collection",
+        "sha256": "54ffb92240e67387e52322d564d6ba4a9b4af4012200dbef0eeb1f724f24bea1"
+      },
+      {
+        "status": "skipped",
+        "file": "docs/loop/three_loops_implementation_design.md",
+        "reason": "same sha256 already imported into collection",
+        "sha256": "8d4f3816a04b6522affef0ce95eb3a5a61cdf3c3692a2d138fd67dc09b65bf78"
+      },
+      {
+        "status": "skipped",
+        "file": "docs/loop/agent31_deep_research_test_prompts.md",
+        "reason": "same sha256 already imported into collection",
+        "sha256": "a251e369855f0b99ab731652aa2e50f7f441b5fe88ba9bbdae5ca15c2258548f"
+      }
+    ]
+  },
+  "bind_result": {
+    "status": "success",
+    "knowledge_bases": [
+      "interview_psychologist_loop_kb"
+    ],
+    "tool_categories": [
+      "file",
+      "knowledge"
+    ]
+  },
+  "snapshot_paths": {
+    "json_path": "docs/loop/agent31_configuration_snapshot.json",
+    "markdown_path": "docs/loop/agent31_configuration_snapshot.md"
+  }
+}

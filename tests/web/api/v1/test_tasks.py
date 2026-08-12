@@ -96,7 +96,7 @@ def mock_start_task():
 
 
 def test_create_task_happy_path(mock_start_task):
-    """Returns 202 + task_id, writes hidden SDK Task + input,
+    """Returns 202 + task_id, writes visible SDK Task + input,
     persists first user message, kicks off background, and leaves the
     task readable through the SDK API surface.
     """
@@ -129,7 +129,7 @@ def test_create_task_happy_path(mock_start_task):
         assert task is not None
         assert task.agent_id == agent_id
         assert task.source == "sdk"
-        assert task.is_visible is False
+        assert task.is_visible is True
         assert task.input == "first user message"
         assert task.status == TaskStatus.RUNNING
 

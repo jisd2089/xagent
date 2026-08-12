@@ -1,0 +1,67 @@
+{
+  "case_id": "loop2_quality_engineer_005",
+  "loop_type": "loop2",
+  "dataset_version": "2026-07-02.auto.001",
+  "transport": {
+    "mode": "dry_run",
+    "task_id": null,
+    "status": "completed",
+    "error": null
+  },
+  "judge": {
+    "passed": true,
+    "score": 1.0,
+    "issues": [],
+    "parsed_output": {
+      "updated_profile": {
+        "competency_weights": {
+          "hard_skill_match": 0.2,
+          "constructive_collaboration": 0.2,
+          "ownership": 0.2,
+          "learning_agility": 0.25,
+          "resilience_review": 0.15
+        }
+      },
+      "weight_changes": {
+        "hard_skill_match": 0.2,
+        "constructive_collaboration": 0.2,
+        "ownership": 0.2,
+        "learning_agility": 0.25,
+        "resilience_review": 0.15
+      },
+      "probe_changes": {
+        "add": [
+          "incident_reconstruction",
+          "feedback_absorption_probe",
+          "cross_team_conflict_probe"
+        ],
+        "downrank": [
+          "background_prestige"
+        ],
+        "remove": [
+          "sensitive_attribute_questions"
+        ]
+      },
+      "conflicts": [
+        {
+          "conflict_type": "none",
+          "rule": "no_conflict"
+        }
+      ],
+      "human_review_required": [],
+      "quality_gate": {
+        "passed": true,
+        "issues": []
+      }
+    }
+  },
+  "passed": true,
+  "tags": {
+    "job_family": "quality_engineer",
+    "feedback_source": "Executive",
+    "feedback_type": "scoring_calibration",
+    "conflict_type": "none",
+    "hiring_urgency": "Med",
+    "difficulty": "medium"
+  }
+}

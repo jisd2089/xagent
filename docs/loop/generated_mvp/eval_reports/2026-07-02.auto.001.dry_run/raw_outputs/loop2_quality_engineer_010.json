@@ -1,0 +1,42 @@
+{
+  "updated_profile": {
+    "competency_weights": {
+      "hard_skill_match": 0.2,
+      "constructive_collaboration": 0.2,
+      "ownership": 0.2,
+      "learning_agility": 0.25,
+      "resilience_review": 0.15
+    }
+  },
+  "weight_changes": {
+    "hard_skill_match": 0.2,
+    "constructive_collaboration": 0.2,
+    "ownership": 0.2,
+    "learning_agility": 0.25,
+    "resilience_review": 0.15
+  },
+  "probe_changes": {
+    "add": [
+      "incident_reconstruction",
+      "feedback_absorption_probe",
+      "cross_team_conflict_probe"
+    ],
+    "downrank": [
+      "background_prestige"
+    ],
+    "remove": [
+      "sensitive_attribute_questions"
+    ]
+  },
+  "conflicts": [
+    {
+      "conflict_type": "none",
+      "rule": "no_conflict"
+    }
+  ],
+  "human_review_required": [],
+  "quality_gate": {
+    "passed": true,
+    "issues": []
+  }
+}

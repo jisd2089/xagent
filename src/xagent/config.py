@@ -38,6 +38,7 @@ AGENT_RUNTIME = "XAGENT_AGENT_RUNTIME"
 TASK_LEASE_TTL_SECONDS = "XAGENT_TASK_LEASE_TTL_SECONDS"
 TASK_LEASE_HEARTBEAT_SECONDS = "XAGENT_TASK_LEASE_HEARTBEAT_SECONDS"
 STORAGE_ROOT = "XAGENT_STORAGE_ROOT"
+LOOP_DATA_DIR = "XAGENT_LOOP_DATA_DIR"
 MAX_UPLOAD_SIZE = "XAGENT_MAX_UPLOAD_SIZE"
 FILE_STORAGE_URI = "XAGENT_FILE_STORAGE_URI"
 FILE_STORAGE_OPTIONS = "XAGENT_FILE_STORAGE_OPTIONS"
@@ -914,6 +915,23 @@ def get_storage_root() -> Path:
 
     # Default: ~/.xagent
     return Path.home() / ".xagent"
+
+
+def get_loop_data_dir() -> Path:
+    """Get the loop engineering data directory path.
+
+    Priority:
+    1. XAGENT_LOOP_DATA_DIR environment variable
+    2. Default to STORAGE_ROOT/loop_data
+
+    Returns:
+        Path object for loop datasets, eval reports, and calibration artifacts
+    """
+    env_dir = os.getenv(LOOP_DATA_DIR)
+    if env_dir:
+        return Path(env_dir)
+
+    return get_storage_root() / "loop_data"
 
 
 def get_sandbox_image() -> str:

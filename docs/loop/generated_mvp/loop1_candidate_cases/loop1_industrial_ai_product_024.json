@@ -1,0 +1,114 @@
+{
+  "case_id": "loop1_industrial_ai_product_024",
+  "loop_type": "loop1",
+  "source_type": "synthetic_case",
+  "synthetic": true,
+  "privacy_level": "public",
+  "tags": {
+    "job_family": "industrial_ai_product",
+    "experience_band": "10+",
+    "super_stage": "Maintenance",
+    "claim_risk": "omission",
+    "interviewer_role": "Executive",
+    "bias_type": "ageism",
+    "compliance_risk": "origin",
+    "hiring_urgency": "Low",
+    "competency_focus": "Balanced",
+    "difficulty": "hard"
+  },
+  "input": {
+    "job_description": {
+      "job_id": "industrial_ai_product_job_024",
+      "title": "Industrial Ai Product",
+      "responsibilities": [
+        "分析岗位关键任务并形成可验证交付",
+        "跨团队协作解决复杂问题",
+        "用事实和指标验证结果"
+      ],
+      "required_competencies": [
+        "hard_skill_match",
+        "constructive_collaboration",
+        "ownership",
+        "learning_agility",
+        "resilience_review"
+      ]
+    },
+    "candidate_profile": {
+      "candidate_id": "synthetic_candidate_024",
+      "experience_band": "10+",
+      "super_stage": "Maintenance",
+      "education_summary": "synthetic anonymized profile",
+      "work_experiences": [
+        "负责复杂系统排查、质量验证和跨团队问题闭环"
+      ],
+      "skills": [
+        "problem_analysis",
+        "documentation",
+        "cross_team_coordination"
+      ]
+    },
+    "candidate_claims": [
+      {
+        "claim_id": "claim_001",
+        "claim_text": "候选人只讲上线成功，回避早期方案被否决和故障复盘。",
+        "risk_type": "omission"
+      }
+    ],
+    "interview_transcript": [
+      {
+        "speaker": "interviewer",
+        "text": "请介绍你最能体现岗位能力的项目。"
+      },
+      {
+        "speaker": "candidate",
+        "text": "候选人只讲上线成功，回避早期方案被否决和故障复盘。"
+      },
+      {
+        "speaker": "interviewer",
+        "text": "你是外地人，会不会不稳定？"
+      }
+    ],
+    "interviewer_feedback": [
+      {
+        "role": "Executive",
+        "text": "年轻面试官评价：候选人毕业太久，可能跟不上年轻团队节奏。",
+        "bias_type": "ageism"
+      }
+    ]
+  },
+  "expected_output": {
+    "claim_risks": [
+      "omission"
+    ],
+    "required_probes": [
+      "5_minute_slice",
+      "counterfactual_probe",
+      "failure_review_probe"
+    ],
+    "bias_audit": [
+      "ageism"
+    ],
+    "compliance_rewrites": [
+      "origin"
+    ],
+    "bars_dimensions": [
+      "constructive_collaboration",
+      "ownership",
+      "learning_agility",
+      "hard_skill_match",
+      "resilience_review"
+    ],
+    "decision_allowed_values": [
+      "录取",
+      "降级录取",
+      "备选池挂起",
+      "拒绝"
+    ]
+  },
+  "quality": {
+    "passed": true,
+    "issues": []
+  },
+  "created_at": "2026-07-02T00:00:00Z",
+  "version": "v1"
+}

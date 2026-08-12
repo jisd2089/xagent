@@ -1,0 +1,54 @@
+{
+  "case_id": "loop1_quality_engineer_025",
+  "loop_type": "loop1",
+  "dataset_version": "2026-07-02.auto.001",
+  "transport": {
+    "mode": "dry_run",
+    "task_id": null,
+    "status": "completed",
+    "error": null
+  },
+  "judge": {
+    "passed": true,
+    "score": 1.0,
+    "issues": [],
+    "parsed_output": {
+      "claim_audit": [
+        "low_risk_control"
+      ],
+      "bei_probe_plan": [
+        "5_minute_slice",
+        "counterfactual_probe",
+        "failure_review_probe"
+      ],
+      "bias_audit": [],
+      "compliance_rewrites": [],
+      "bars_scorecard": [
+        "constructive_collaboration",
+        "ownership",
+        "learning_agility",
+        "hard_skill_match",
+        "resilience_review"
+      ],
+      "decision": "备选池挂起",
+      "quality_gate": {
+        "passed": true,
+        "issues": [],
+        "self_check": "All high-risk claims have evidence probes."
+      }
+    }
+  },
+  "passed": true,
+  "tags": {
+    "job_family": "quality_engineer",
+    "experience_band": "0-3",
+    "super_stage": "Exploration",
+    "claim_risk": "low_risk_control",
+    "interviewer_role": "HR",
+    "bias_type": "none",
+    "compliance_risk": "none",
+    "hiring_urgency": "High",
+    "competency_focus": "Hard",
+    "difficulty": "easy"
+  }
+}

@@ -47,6 +47,7 @@ const en = {
     files: "Files",
     memory: "Memory",
     monitoring: "Monitoring",
+    loopEval: "Loop Eval",
     knowledgeBase: "Knowledge Base",
     knowledgeBaseDetail: "KB Detail",
     userManagement: "User Management",

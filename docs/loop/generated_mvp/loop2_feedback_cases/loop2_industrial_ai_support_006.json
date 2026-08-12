@@ -1,0 +1,73 @@
+{
+  "case_id": "loop2_industrial_ai_support_006",
+  "loop_type": "loop2",
+  "source_type": "synthetic_case",
+  "synthetic": true,
+  "privacy_level": "public",
+  "tags": {
+    "job_family": "industrial_ai_support",
+    "feedback_source": "HR",
+    "feedback_type": "competency_weight",
+    "conflict_type": "urgent_vs_high_standard",
+    "hiring_urgency": "Low",
+    "difficulty": "hard"
+  },
+  "input": {
+    "selection_loop_profile": {
+      "job_id": "industrial_ai_support_job_006",
+      "job_title": "Industrial Ai Support",
+      "hiring_urgency": "Low",
+      "target_precision": "Broad",
+      "competency_focus": "Balanced"
+    },
+    "stakeholder_feedback": [
+      {
+        "source": "HR",
+        "feedback_type": "competency_weight",
+        "content": "用人经理要求降低单一技术栈权重，提高复盘和带教能力权重。 当前冲突类型：urgent_vs_high_standard。"
+      }
+    ],
+    "competency_weights_before": {
+      "hard_skill_match": 0.3,
+      "constructive_collaboration": 0.2,
+      "ownership": 0.2,
+      "learning_agility": 0.15,
+      "resilience_review": 0.15
+    }
+  },
+  "expected_output": {
+    "expected_weight_update": {
+      "hard_skill_match": 0.2,
+      "constructive_collaboration": 0.25,
+      "ownership": 0.25,
+      "learning_agility": 0.15,
+      "resilience_review": 0.15
+    },
+    "expected_probe_update": {
+      "add": [
+        "incident_reconstruction",
+        "feedback_absorption_probe",
+        "cross_team_conflict_probe"
+      ],
+      "downrank": [
+        "background_prestige"
+      ],
+      "remove": [
+        "sensitive_attribute_questions"
+      ]
+    },
+    "conflict_resolution": {
+      "conflict_type": "urgent_vs_high_standard",
+      "rule": "list_conflict_and_request_owner_priority"
+    },
+    "human_review_required": [
+      "decision_owner_priority"
+    ]
+  },
+  "quality": {
+    "passed": true,
+    "issues": []
+  },
+  "created_at": "2026-07-02T00:00:00Z",
+  "version": "v1"
+}

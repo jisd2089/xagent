@@ -1,0 +1,58 @@
+{
+  "case_id": "loop1_software_developer_023",
+  "loop_type": "loop1",
+  "dataset_version": "2026-07-02.auto.001",
+  "transport": {
+    "mode": "dry_run",
+    "task_id": null,
+    "status": "completed",
+    "error": null
+  },
+  "judge": {
+    "passed": true,
+    "score": 1.0,
+    "issues": [],
+    "parsed_output": {
+      "claim_audit": [
+        "distancing"
+      ],
+      "bei_probe_plan": [
+        "5_minute_slice",
+        "counterfactual_probe",
+        "failure_review_probe"
+      ],
+      "bias_audit": [
+        "affinity"
+      ],
+      "compliance_rewrites": [
+        "age"
+      ],
+      "bars_scorecard": [
+        "constructive_collaboration",
+        "ownership",
+        "learning_agility",
+        "hard_skill_match",
+        "resilience_review"
+      ],
+      "decision": "备选池挂起",
+      "quality_gate": {
+        "passed": true,
+        "issues": [],
+        "self_check": "All high-risk claims have evidence probes."
+      }
+    }
+  },
+  "passed": true,
+  "tags": {
+    "job_family": "software_developer",
+    "experience_band": "4-10",
+    "super_stage": "Establishment",
+    "claim_risk": "distancing",
+    "interviewer_role": "HiringManager",
+    "bias_type": "affinity",
+    "compliance_risk": "age",
+    "hiring_urgency": "Med",
+    "competency_focus": "Soft",
+    "difficulty": "medium"
+  }
+}

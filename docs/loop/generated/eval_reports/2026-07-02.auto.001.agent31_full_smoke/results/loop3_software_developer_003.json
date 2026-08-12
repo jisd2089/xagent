@@ -1,0 +1,61 @@
+{
+  "case_id": "loop3_software_developer_003",
+  "loop_type": "loop3",
+  "dataset_version": "2026-07-02.auto.001",
+  "transport": {
+    "mode": "http_reuse",
+    "task_id": 202,
+    "status": "completed",
+    "error": null
+  },
+  "judge": {
+    "passed": true,
+    "score": 1.0,
+    "issues": [],
+    "parsed_output": {
+      "case_id": "loop3_software_developer_003",
+      "prediction_miss": {
+        "type": "False Negative",
+        "root_cause": "learning_agility_underestimated"
+      },
+      "competency_weights_after": {
+        "hard_skill_match": 0.3,
+        "learning_agility": 0.3,
+        "ownership": 0.15,
+        "constructive_collaboration": 0.15,
+        "resilience_review": 0.1,
+        "terminology_fluency": 0.0
+      },
+      "terminology_fluency_status": "观察标签，不计入评分权重",
+      "probes_total": 10,
+      "new_probes": [
+        "P09_48_hour_work_sample",
+        "P10_learning_path_probe"
+      ],
+      "hard_skill_probes_preserved": [
+        "P01",
+        "P02",
+        "P03",
+        "P04",
+        "P05",
+        "P06",
+        "P07",
+        "P08"
+      ],
+      "rules_compliance": {
+        "do_not_remove_hard_skill_probes": "passed"
+      },
+      "sample_size_warning": "24人批次/1条失误记录 — 建议半幅执行权重调整",
+      "human_review_required": null
+    }
+  },
+  "passed": true,
+  "tags": {
+    "job_family": "software_developer",
+    "outcome_type": "false_negative",
+    "miss_type": "learning_agility_underestimated",
+    "sample_size_band": "batch_20_plus",
+    "outcome_window": "day_30",
+    "difficulty": "hard"
+  }
+}

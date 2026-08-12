@@ -217,12 +217,37 @@ Use this flow when the server builds images locally and deploys them with the
 root `docker-compose.yml`. The compose file defaults to `20260629.1`, and the
 same file can be reused for later patch tags by setting `XAGENT_IMAGE_TAG`.
 
+For servers in mainland China or other networks where `deb.debian.org` is slow,
+pass a Debian mirror explicitly. The backend Dockerfile supports `APT_MIRROR`;
+omitting it can leave the runtime `apt-get install` step stuck for a long time
+while downloading large packages such as `containerd`, `docker.io`, and
+`libreoffice`.
+
+Do not set `PYPI_INDEX_URL` for this server rebuild unless the mirror is known
+to be lock-compatible with the committed `uv.lock`: the same value is passed to
+`uv sync --default-index`, and some mirrors can make `uv sync --locked` report
+that the lockfile needs to be updated.
+
+```bash
+TAG=20260630.1
+
+docker buildx build \
+  --progress=plain \
+  --build-arg APT_MIRROR=https://mirrors.aliyun.com/debian \
+  -f docker/Dockerfile.backend \
+  -t "xprobe/xagent-backend:${TAG}" .
+
+XAGENT_IMAGE_TAG="$TAG" docker compose up -d --force-recreate backend
+```
+
+For the release publishing script:
+
 ```bash
 TAG=20260629.1
 
 # Optional mirrors for restricted or unstable networks.
-export APT_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/debian
-# export PYPI_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
+export APT_MIRROR=https://mirrors.aliyun.com/debian
+# Leave PYPI_INDEX_URL unset unless the mirror is lock-compatible with uv.lock.
 # export PYTHON_IMAGE=registry.example.com/library/python:3.11-bookworm
 # export NODE_IMAGE=registry.example.com/library/node:22-bookworm-slim
 

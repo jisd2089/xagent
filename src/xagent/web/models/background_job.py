@@ -21,6 +21,8 @@ class BackgroundJobStatus(str, enum.Enum):
 class BackgroundJobType(str, enum.Enum):
     KB_INGEST_DOCUMENT = "kb.ingest.document"
     KB_INGEST_WEB = "kb.ingest.web"
+    LOOP_DATA_GENERATE = "loop.data.generate"
+    LOOP_EVAL_RUN = "loop.eval.run"
     TRIGGER_EVENT = "trigger.event"
     TRIGGER_SCAN = "trigger.scan"
 

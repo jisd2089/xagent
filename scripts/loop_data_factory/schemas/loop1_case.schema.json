@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xagent.local/schemas/loop1_case.schema.json",
+  "title": "Loop 1 Candidate Evidence Audit Case",
+  "allOf": [
+    {
+      "$ref": "loop_case.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "loop_type": {
+          "const": "loop1"
+        },
+        "tags": {
+          "type": "object",
+          "required": [
+            "job_family",
+            "experience_band",
+            "super_stage",
+            "claim_risk",
+            "bias_type",
+            "compliance_risk"
+          ]
+        },
+        "input": {
+          "type": "object",
+          "required": [
+            "job_description",
+            "candidate_profile",
+            "candidate_claims",
+            "interview_transcript",
+            "interviewer_feedback"
+          ],
+          "properties": {
+            "candidate_claims": {
+              "type": "array",
+              "minItems": 1
+            },
+            "interview_transcript": {
+              "type": "array",
+              "minItems": 1
+            }
+          }
+        },
+        "expected_output": {
+          "type": "object",
+          "required": [
+            "claim_risks",
+            "required_probes",
+            "bias_audit",
+            "compliance_rewrites",
+            "bars_dimensions",
+            "decision_allowed_values"
+          ],
+          "properties": {
+            "claim_risks": {
+              "type": "array",
+              "minItems": 1
+            },
+            "required_probes": {
+              "type": "array",
+              "minItems": 1
+            },
+            "bars_dimensions": {
+              "type": "array",
+              "minItems": 3
+            },
+            "decision_allowed_values": {
+              "type": "array",
+              "contains": {
+                "enum": ["录取", "降级录取", "备选池挂起", "拒绝"]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

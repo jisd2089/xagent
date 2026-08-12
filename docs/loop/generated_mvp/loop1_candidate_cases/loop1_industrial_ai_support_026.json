@@ -1,0 +1,114 @@
+{
+  "case_id": "loop1_industrial_ai_support_026",
+  "loop_type": "loop1",
+  "source_type": "synthetic_case",
+  "synthetic": true,
+  "privacy_level": "public",
+  "tags": {
+    "job_family": "industrial_ai_support",
+    "experience_band": "4-10",
+    "super_stage": "Establishment",
+    "claim_risk": "metric_inflation",
+    "interviewer_role": "PeerInterviewer",
+    "bias_type": "reactance",
+    "compliance_risk": "family",
+    "hiring_urgency": "Med",
+    "competency_focus": "Soft",
+    "difficulty": "medium"
+  },
+  "input": {
+    "job_description": {
+      "job_id": "industrial_ai_support_job_026",
+      "title": "Industrial Ai Support",
+      "responsibilities": [
+        "分析岗位关键任务并形成可验证交付",
+        "跨团队协作解决复杂问题",
+        "用事实和指标验证结果"
+      ],
+      "required_competencies": [
+        "hard_skill_match",
+        "constructive_collaboration",
+        "ownership",
+        "learning_agility",
+        "resilience_review"
+      ]
+    },
+    "candidate_profile": {
+      "candidate_id": "synthetic_candidate_026",
+      "experience_band": "4-10",
+      "super_stage": "Establishment",
+      "education_summary": "synthetic anonymized profile",
+      "work_experiences": [
+        "负责复杂系统排查、质量验证和跨团队问题闭环"
+      ],
+      "skills": [
+        "problem_analysis",
+        "documentation",
+        "cross_team_coordination"
+      ]
+    },
+    "candidate_claims": [
+      {
+        "claim_id": "claim_001",
+        "claim_text": "候选人称将核心系统性能提升 60%，但未说明基线、统计口径和验收周期。",
+        "risk_type": "metric_inflation"
+      }
+    ],
+    "interview_transcript": [
+      {
+        "speaker": "interviewer",
+        "text": "请介绍你最能体现岗位能力的项目。"
+      },
+      {
+        "speaker": "candidate",
+        "text": "候选人称将核心系统性能提升 60%，但未说明基线、统计口径和验收周期。"
+      },
+      {
+        "speaker": "interviewer",
+        "text": "你结婚了吗？如果经常加班孩子谁带？"
+      }
+    ],
+    "interviewer_feedback": [
+      {
+        "role": "PeerInterviewer",
+        "text": "同级面试官评价：候选人太强势，不好管，可能压过组里老人。",
+        "bias_type": "reactance"
+      }
+    ]
+  },
+  "expected_output": {
+    "claim_risks": [
+      "metric_inflation"
+    ],
+    "required_probes": [
+      "5_minute_slice",
+      "counterfactual_probe",
+      "failure_review_probe"
+    ],
+    "bias_audit": [
+      "reactance"
+    ],
+    "compliance_rewrites": [
+      "family"
+    ],
+    "bars_dimensions": [
+      "constructive_collaboration",
+      "ownership",
+      "learning_agility",
+      "hard_skill_match",
+      "resilience_review"
+    ],
+    "decision_allowed_values": [
+      "录取",
+      "降级录取",
+      "备选池挂起",
+      "拒绝"
+    ]
+  },
+  "quality": {
+    "passed": true,
+    "issues": []
+  },
+  "created_at": "2026-07-02T00:00:00Z",
+  "version": "v1"
+}

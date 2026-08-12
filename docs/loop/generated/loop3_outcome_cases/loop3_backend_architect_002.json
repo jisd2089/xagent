@@ -1,0 +1,62 @@
+{
+  "case_id": "loop3_backend_architect_002",
+  "loop_type": "loop3",
+  "source_type": "synthetic_case",
+  "synthetic": true,
+  "privacy_level": "public",
+  "tags": {
+    "job_family": "backend_architect",
+    "outcome_type": "false_positive",
+    "miss_type": "hard_skill_water",
+    "sample_size_band": "small_5_10",
+    "outcome_window": "offer",
+    "difficulty": "medium"
+  },
+  "input": {
+    "batch_summary": {
+      "job_id": "backend_architect_job_002",
+      "candidate_count": 8,
+      "agent_recommended_hire": 2,
+      "actual_success_count": 2,
+      "outcome_window": "offer"
+    },
+    "candidate_outcomes": [
+      {
+        "candidate_id": "synthetic_candidate_002_001",
+        "agent_recommendation": "录取",
+        "human_decision": "采纳",
+        "actual_outcome": "probation_failed",
+        "evidence": "项目细节无法落地，关键指标口径不成立。"
+      }
+    ]
+  },
+  "expected_output": {
+    "prediction_hits": [],
+    "prediction_misses": [
+      "hard_skill_water"
+    ],
+    "calibration_expected": {
+      "weight_changes": {
+        "hard_skill_match": 0.1,
+        "resume_prestige": -0.1
+      },
+      "probe_changes": [
+        "5_minute_slice",
+        "metric_baseline_probe"
+      ],
+      "rules_not_to_change": [
+        "do_not_remove_hard_skill_probes"
+      ],
+      "human_review_required": [
+        "sample_size_review"
+      ]
+    },
+    "sample_size_warning": "sample_too_small_for_global_rule"
+  },
+  "quality": {
+    "passed": true,
+    "issues": []
+  },
+  "created_at": "2026-07-02T00:00:00Z",
+  "version": "v1"
+}

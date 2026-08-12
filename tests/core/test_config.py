@@ -33,6 +33,7 @@ from xagent.config import (
     HOT_PATH_CACHE_TTL_SECONDS,
     HOT_PATH_TASK_CACHE_TTL_SECONDS,
     LANCEDB_PATH,
+    LOOP_DATA_DIR,
     MAX_TRACE_PAYLOAD_BYTES,
     MAX_UPLOAD_SIZE,
     OPENROUTER_OFFICIAL_PROVIDERS_ONLY,
@@ -94,6 +95,7 @@ from xagent.config import (
     get_hot_path_cache_ttl_seconds,
     get_hot_path_task_cache_ttl_seconds,
     get_lancedb_path,
+    get_loop_data_dir,
     get_max_trace_payload_bytes,
     get_max_upload_size_bytes,
     get_openrouter_official_providers_only,
@@ -148,6 +150,9 @@ class TestEnvironmentVariableConstants:
 
     def test_storage_root_constant(self):
         assert STORAGE_ROOT == "XAGENT_STORAGE_ROOT"
+
+    def test_loop_data_dir_constant(self):
+        assert LOOP_DATA_DIR == "XAGENT_LOOP_DATA_DIR"
 
     def test_sandbox_image_constant(self):
         assert SANDBOX_IMAGE == "SANDBOX_IMAGE"
@@ -901,6 +906,21 @@ class TestGetStorageRoot:
         monkeypatch.setenv(STORAGE_ROOT, "/custom/storage")
         result = get_storage_root()
         assert result == Path("/custom/storage")
+
+
+class TestGetLoopDataDir:
+    """Test get_loop_data_dir() function."""
+
+    def test_default_loop_data_dir(self, monkeypatch):
+        monkeypatch.delenv(LOOP_DATA_DIR, raising=False)
+        monkeypatch.setenv(STORAGE_ROOT, "/custom/storage")
+        result = get_loop_data_dir()
+        assert result == Path("/custom/storage") / "loop_data"
+
+    def test_loop_data_dir_with_env_var(self, monkeypatch):
+        monkeypatch.setenv(LOOP_DATA_DIR, "/custom/loop-data")
+        result = get_loop_data_dir()
+        assert result == Path("/custom/loop-data")
 
 
 class TestGetSandboxImage:

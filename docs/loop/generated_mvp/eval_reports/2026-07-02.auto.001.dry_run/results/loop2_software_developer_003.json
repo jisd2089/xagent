@@ -1,0 +1,69 @@
+{
+  "case_id": "loop2_software_developer_003",
+  "loop_type": "loop2",
+  "dataset_version": "2026-07-02.auto.001",
+  "transport": {
+    "mode": "dry_run",
+    "task_id": null,
+    "status": "completed",
+    "error": null
+  },
+  "judge": {
+    "passed": true,
+    "score": 1.0,
+    "issues": [],
+    "parsed_output": {
+      "updated_profile": {
+        "competency_weights": {
+          "hard_skill_match": 0.2,
+          "constructive_collaboration": 0.3,
+          "ownership": 0.2,
+          "learning_agility": 0.15,
+          "resilience_review": 0.15
+        }
+      },
+      "weight_changes": {
+        "hard_skill_match": 0.2,
+        "constructive_collaboration": 0.3,
+        "ownership": 0.2,
+        "learning_agility": 0.15,
+        "resilience_review": 0.15
+      },
+      "probe_changes": {
+        "add": [
+          "incident_reconstruction",
+          "feedback_absorption_probe",
+          "cross_team_conflict_probe"
+        ],
+        "downrank": [
+          "background_prestige"
+        ],
+        "remove": [
+          "sensitive_attribute_questions"
+        ]
+      },
+      "conflicts": [
+        {
+          "conflict_type": "education_vs_potential",
+          "rule": "list_conflict_and_request_owner_priority"
+        }
+      ],
+      "human_review_required": [
+        "decision_owner_priority"
+      ],
+      "quality_gate": {
+        "passed": true,
+        "issues": []
+      }
+    }
+  },
+  "passed": true,
+  "tags": {
+    "job_family": "software_developer",
+    "feedback_source": "HiringManager",
+    "feedback_type": "team_context",
+    "conflict_type": "education_vs_potential",
+    "hiring_urgency": "Low",
+    "difficulty": "hard"
+  }
+}

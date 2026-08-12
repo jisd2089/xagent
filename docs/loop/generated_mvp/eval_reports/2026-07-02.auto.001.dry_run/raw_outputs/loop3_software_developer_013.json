@@ -1,0 +1,24 @@
+{
+  "prediction_hits": [],
+  "prediction_misses": [
+    "learning_agility_underestimated"
+  ],
+  "calibration_actions": [
+    "48_hour_work_sample",
+    "learning_path_probe"
+  ],
+  "next_batch_strategy": {
+    "weight_changes": {
+      "learning_agility": 0.1,
+      "terminology_fluency": -0.05
+    },
+    "rules_not_to_change": [
+      "do_not_remove_hard_skill_probes"
+    ]
+  },
+  "sample_size_warning": "sample_too_small_for_global_rule",
+  "quality_gate": {
+    "passed": true,
+    "issues": []
+  }
+}

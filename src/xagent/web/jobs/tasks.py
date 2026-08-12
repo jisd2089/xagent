@@ -40,6 +40,14 @@ def _execute_job_handler(db: Session, job: BackgroundJob) -> dict[str, Any]:
         from .kb_tasks import handle_kb_ingest_web
 
         return handle_kb_ingest_web(db, job)
+    if job.job_type == BackgroundJobType.LOOP_DATA_GENERATE.value:
+        from .loop_data_tasks import handle_loop_data_generate
+
+        return handle_loop_data_generate(db, job)
+    if job.job_type == BackgroundJobType.LOOP_EVAL_RUN.value:
+        from .loop_eval_tasks import handle_loop_eval_run
+
+        return handle_loop_eval_run(db, job)
     if job.job_type == BackgroundJobType.TRIGGER_EVENT.value:
         from .trigger_tasks import handle_trigger_event
 

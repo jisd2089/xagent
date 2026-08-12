@@ -1,0 +1,114 @@
+{
+  "case_id": "loop2_industrial_ai_support_001",
+  "loop_type": "loop2",
+  "dataset_version": "2026-07-02.auto.001",
+  "transport": {
+    "mode": "http_reuse",
+    "task_id": 197,
+    "status": "completed",
+    "error": null
+  },
+  "judge": {
+    "passed": true,
+    "score": 1.0,
+    "issues": [],
+    "parsed_output": {
+      "case_id": "loop2_industrial_ai_support_001",
+      "loop_type": "loop2",
+      "status": "pending_human_review",
+      "updated_profile": {
+        "job_id": "industrial_ai_support_job_001",
+        "job_title": "Industrial Ai Support",
+        "hiring_urgency": "High",
+        "target_precision": "Specific",
+        "competency_focus": "Balanced",
+        "competency_weights": {
+          "hard_skill_match": 0.2,
+          "constructive_collaboration": 0.25,
+          "ownership": 0.25,
+          "learning_agility": 0.15,
+          "resilience_review": 0.15
+        },
+        "probe_strategy": {
+          "add": [
+            "incident_reconstruction",
+            "feedback_absorption_probe",
+            "cross_team_conflict_probe"
+          ],
+          "downrank": [
+            "background_prestige"
+          ],
+          "remove": [
+            "sensitive_attribute_questions"
+          ]
+        },
+        "conflicts": [
+          {
+            "conflict_type": "urgent_vs_high_standard",
+            "description": "急招时间压力与深度复盘/带教评估所需时间之间存在张力",
+            "resolution_status": "pending_owner_priority"
+          }
+        ]
+      },
+      "weight_changes": {
+        "hard_skill_match": {
+          "before": 0.3,
+          "after": 0.2,
+          "reason": "用人经理要求降低单一技术栈权重"
+        },
+        "constructive_collaboration": {
+          "before": 0.2,
+          "after": 0.25,
+          "reason": "带教能力归属于建设性协作范畴"
+        },
+        "ownership": {
+          "before": 0.2,
+          "after": 0.25,
+          "reason": "复盘能力归属于主人翁意识范畴"
+        },
+        "learning_agility": {
+          "before": 0.15,
+          "after": 0.15,
+          "reason": "维持不变"
+        },
+        "resilience_review": {
+          "before": 0.15,
+          "after": 0.15,
+          "reason": "维持不变"
+        }
+      },
+      "probe_changes": {
+        "add": [
+          "incident_reconstruction",
+          "feedback_absorption_probe",
+          "cross_team_conflict_probe"
+        ],
+        "downrank": [
+          "background_prestige"
+        ],
+        "remove": [
+          "sensitive_attribute_questions"
+        ]
+      },
+      "human_review_required": [
+        "decision_owner_priority",
+        "bars_floor_for_mentoring_review",
+        "probation_period_validation_acceptance"
+      ],
+      "compliance_check": {
+        "no_sensitive_attributes": true,
+        "no_degraded_due_to_urgency": true,
+        "all_changes_traceable_to_feedback": true
+      }
+    }
+  },
+  "passed": true,
+  "tags": {
+    "job_family": "industrial_ai_support",
+    "feedback_source": "HR",
+    "feedback_type": "competency_weight",
+    "conflict_type": "urgent_vs_high_standard",
+    "hiring_urgency": "High",
+    "difficulty": "easy"
+  }
+}

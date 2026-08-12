@@ -16,6 +16,7 @@ from xagent.core.agent import (
     ExecutionPlan,
     LLMPlanGenerator,
     PatternRuntime,
+    PlanGenerationDiagnostics,
     PlanGenerationRequest,
     PlanGenerator,
     PlanStep,
@@ -1591,6 +1592,193 @@ async def test_llm_plan_generator_retries_missing_required_tool_call() -> None:
 
 
 @pytest.mark.asyncio
+async def test_llm_plan_generator_retries_invalid_plan_tool_arguments() -> None:
+    generator = LLMPlanGenerator()
+    context = ExecutionContext(execution_id="dag-llm-plan-invalid-json")
+    context.add_user_message("Create a short plan")
+    llm = SequenceLLM(
+        [
+            {
+                "tool_calls": [
+                    {
+                        "id": "call_generate_execution_plan",
+                        "type": "function",
+                        "function": {
+                            "name": "generate_execution_plan",
+                            "arguments": '{"steps": [',
+                        },
+                    }
+                ]
+            },
+            plan_tool_response(
+                [
+                    {
+                        "id": "final",
+                        "task": "Answer",
+                        "dependencies": [],
+                        "termination_condition": (
+                            "Stop after final_answer returns the answer."
+                        ),
+                        "completion_evidence": (
+                            "The final answer has been returned successfully."
+                        ),
+                        "tool_names": [],
+                    }
+                ]
+            ),
+        ]
+    )
+
+    plan = await generator.generate_plan(
+        request=PlanGenerationRequest(
+            context=context,
+            execution_id="dag-llm-plan-invalid-json",
+            available_tool_names=[],
+        ),
+        llm=llm,
+    )
+
+    assert [step.id for step in plan.steps] == ["final"]
+    assert llm.calls == 2
+    assert generator.last_diagnostics.to_dict() == {
+        "execution_id": "dag-llm-plan-invalid-json",
+        "attempts": 2,
+        "retry_count": 1,
+        "omitted_tool_call_count": 0,
+        "invalid_argument_count": 1,
+        "repaired_argument_count": 0,
+        "fallback_used": False,
+        "errors": [
+            "ValueError: Tool call arguments appear truncated and must be retried."
+        ],
+    }
+    retry_message = llm.seen_messages[1][-1]["content"]
+    assert "could not be used" in retry_message
+    assert "function.arguments must be one complete valid JSON object" in retry_message
+
+
+@pytest.mark.asyncio
+async def test_llm_plan_generator_repairs_complete_invalid_json_arguments() -> None:
+    generator = LLMPlanGenerator()
+    context = ExecutionContext(execution_id="dag-llm-plan-repair-json")
+    context.add_user_message("Create a short plan")
+    llm = SequenceLLM(
+        [
+            {
+                "tool_calls": [
+                    {
+                        "id": "call_generate_execution_plan",
+                        "type": "function",
+                        "function": {
+                            "name": "generate_execution_plan",
+                            "arguments": """
+                            {
+                              "steps": [
+                                {
+                                  "id": "final",
+                                  "task": "Answer",
+                                  "dependencies": [],
+                                  "termination_condition": "Stop after final_answer returns the answer.",
+                                  "completion_evidence": "The final answer has been returned successfully.",
+                                  "tool_names": [],
+                                }
+                              ],
+                              "response_language": "English",
+                            }
+                            """,
+                        },
+                    }
+                ]
+            }
+        ]
+    )
+
+    plan = await generator.generate_plan(
+        request=PlanGenerationRequest(
+            context=context,
+            execution_id="dag-llm-plan-repair-json",
+            available_tool_names=[],
+        ),
+        llm=llm,
+    )
+
+    assert [step.id for step in plan.steps] == ["final"]
+    assert llm.calls == 1
+    assert isinstance(generator.last_diagnostics, PlanGenerationDiagnostics)
+    assert generator.last_diagnostics.to_dict() == {
+        "execution_id": "dag-llm-plan-repair-json",
+        "attempts": 1,
+        "retry_count": 0,
+        "omitted_tool_call_count": 0,
+        "invalid_argument_count": 0,
+        "repaired_argument_count": 1,
+        "fallback_used": False,
+        "errors": [],
+    }
+
+
+@pytest.mark.asyncio
+async def test_llm_plan_generator_falls_back_after_repeated_truncated_json() -> None:
+    generator = LLMPlanGenerator()
+    context = ExecutionContext(execution_id="dag-llm-plan-fallback")
+    context.add_user_message("Create a short plan")
+    llm = SequenceLLM(
+        [
+            {
+                "tool_calls": [
+                    {
+                        "id": "call_generate_execution_plan",
+                        "type": "function",
+                        "function": {
+                            "name": "generate_execution_plan",
+                            "arguments": '{"steps": [',
+                        },
+                    }
+                ]
+            },
+            {
+                "tool_calls": [
+                    {
+                        "id": "call_generate_execution_plan",
+                        "type": "function",
+                        "function": {
+                            "name": "generate_execution_plan",
+                            "arguments": '{"steps": [{"id": "final"',
+                        },
+                    }
+                ]
+            },
+        ]
+    )
+
+    plan = await generator.generate_plan(
+        request=PlanGenerationRequest(
+            context=context,
+            execution_id="dag-llm-plan-fallback",
+            available_tool_names=["knowledge_search"],
+        ),
+        llm=llm,
+    )
+
+    assert [step.id for step in plan.steps] == ["final"]
+    assert plan.steps[0].tool_names == []
+    assert llm.calls == 2
+    assert generator.last_diagnostics.to_dict() == {
+        "execution_id": "dag-llm-plan-fallback",
+        "attempts": 2,
+        "retry_count": 1,
+        "omitted_tool_call_count": 0,
+        "invalid_argument_count": 2,
+        "repaired_argument_count": 0,
+        "fallback_used": True,
+        "errors": [
+            "ValueError: Tool call arguments appear truncated and must be retried.",
+            "ValueError: Tool call arguments appear truncated and must be retried.",
+        ],
+    }
+
+
+@pytest.mark.asyncio
 async def test_llm_plan_generator_reports_missing_required_tool_call() -> None:
     generator = LLMPlanGenerator()
     context = ExecutionContext(execution_id="dag-llm-plan-missing")
@@ -1617,6 +1805,19 @@ async def test_llm_plan_generator_reports_missing_required_tool_call() -> None:
     assert exc_info.value.user_message == PLAN_GENERATION_REQUIRED_TOOL_MESSAGE
     assert "LLMPlanGenerator requires" not in str(exc_info.value)
     assert llm.calls == 2
+    assert generator.last_diagnostics.to_dict() == {
+        "execution_id": "dag-llm-plan-missing",
+        "attempts": 2,
+        "retry_count": 1,
+        "omitted_tool_call_count": 2,
+        "invalid_argument_count": 0,
+        "repaired_argument_count": 0,
+        "fallback_used": False,
+        "errors": [
+            "required_tool_call_omitted",
+            "required_tool_call_omitted",
+        ],
+    }
 
 
 def test_dag_output_language_reads_dict_context_metadata() -> None:

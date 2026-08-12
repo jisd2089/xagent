@@ -1,0 +1,69 @@
+{
+  "case_id": "loop3_industrial_ai_support_001",
+  "loop_type": "loop3",
+  "dataset_version": "2026-07-02.auto.001",
+  "transport": {
+    "mode": "http_reuse",
+    "task_id": 198,
+    "status": "completed",
+    "error": null
+  },
+  "judge": {
+    "passed": true,
+    "score": 1.0,
+    "issues": [],
+    "parsed_output": {
+      "case_id": "loop3_industrial_ai_support_001",
+      "calibration_date": "2026-07-02",
+      "protocol_version": "3-loop-v2.0",
+      "sample_size": 1,
+      "sample_size_warning": "sample_too_small_for_global_rule",
+      "prediction_hits": [
+        "hard_skill_match",
+        "ownership"
+      ],
+      "prediction_misses": [],
+      "hidden_leakage_signal": "constructive_collaboration_underweighted",
+      "weight_changes_applied": {
+        "constructive_collaboration": {
+          "delta": "+0.10",
+          "old": 0.2,
+          "new": 0.3,
+          "scope": "this_job"
+        },
+        "hard_skill_match": {
+          "delta": "-0.05",
+          "old": 0.25,
+          "new": 0.2,
+          "scope": "this_job"
+        }
+      },
+      "probe_changes_applied": {
+        "added": [
+          "cross_team_conflict_probe",
+          "feedback_absorption_probe"
+        ],
+        "removed": [],
+        "scope": "this_job_optional"
+      },
+      "rules_preserved": [
+        "do_not_remove_hard_skill_probes"
+      ],
+      "global_rules_frozen": true,
+      "human_review_required": [
+        "sample_size_review",
+        "threshold_5_candidates_for_global_calibration",
+        "collaboration_blindspot_monitoring"
+      ]
+    }
+  },
+  "passed": true,
+  "tags": {
+    "job_family": "industrial_ai_support",
+    "outcome_type": "hit",
+    "miss_type": "collaboration_risk",
+    "sample_size_band": "individual",
+    "outcome_window": "second_round",
+    "difficulty": "easy"
+  }
+}

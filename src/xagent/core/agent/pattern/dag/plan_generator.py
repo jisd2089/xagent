@@ -7,6 +7,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from json_repair import loads as repair_json_loads
+
 from ...language import (
     OUTPUT_LANGUAGE_METADATA_KEY,
     normalize_response_language_label,
@@ -30,6 +32,32 @@ PLAN_GENERATION_REQUIRED_TOOL_MESSAGE = (
 
 class PlanValidationError(ValueError):
     """Raised when a DAG execution plan is structurally invalid."""
+
+
+@dataclass
+class PlanGenerationDiagnostics:
+    """Machine-readable summary of the latest LLM plan generation attempt."""
+
+    execution_id: str | None = None
+    attempts: int = 0
+    retry_count: int = 0
+    omitted_tool_call_count: int = 0
+    invalid_argument_count: int = 0
+    repaired_argument_count: int = 0
+    fallback_used: bool = False
+    errors: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "execution_id": self.execution_id,
+            "attempts": self.attempts,
+            "retry_count": self.retry_count,
+            "omitted_tool_call_count": self.omitted_tool_call_count,
+            "invalid_argument_count": self.invalid_argument_count,
+            "repaired_argument_count": self.repaired_argument_count,
+            "fallback_used": self.fallback_used,
+            "errors": list(self.errors),
+        }
 
 
 @dataclass
@@ -214,12 +242,17 @@ class LLMPlanGenerator(PlanGenerator):
 
     PLAN_TOOL_NAME = "generate_execution_plan"
 
+    def __init__(self) -> None:
+        self.last_diagnostics = PlanGenerationDiagnostics()
+
     async def generate_plan(
         self,
         *,
         request: PlanGenerationRequest,
         llm: Any,
     ) -> ExecutionPlan:
+        diagnostics = PlanGenerationDiagnostics(execution_id=request.execution_id)
+        self.last_diagnostics = diagnostics
         plan_tools = [self._plan_tool_schema()]
         messages = [
             {
@@ -295,6 +328,7 @@ class LLMPlanGenerator(PlanGenerator):
         ]
         retry_feedback: str | None = None
         for attempt in range(MAX_PLAN_TOOL_CALL_ATTEMPTS):
+            diagnostics.attempts = attempt + 1
             attempt_messages = list(messages)
             if retry_feedback:
                 attempt_messages = append_user_message_preserving_turns(
@@ -314,9 +348,14 @@ class LLMPlanGenerator(PlanGenerator):
                     self.PLAN_TOOL_NAME,
                     attempts=attempt + 1,
                 )
+                self._apply_response_language(request.context, plan_arguments)
+                plan = coerce_execution_plan(plan_arguments)
             except RequiredToolCallError:
+                diagnostics.omitted_tool_call_count += 1
+                diagnostics.errors.append("required_tool_call_omitted")
                 if attempt + 1 >= MAX_PLAN_TOOL_CALL_ATTEMPTS:
                     raise
+                diagnostics.retry_count += 1
                 retry_feedback = self._required_tool_call_retry_feedback(
                     self.PLAN_TOOL_NAME
                 )
@@ -328,13 +367,61 @@ class LLMPlanGenerator(PlanGenerator):
                     attempt + 1,
                 )
                 continue
-            self._apply_response_language(request.context, plan_arguments)
-            plan = coerce_execution_plan(plan_arguments)
+            except (PlanValidationError, TypeError, ValueError) as exc:
+                diagnostics.invalid_argument_count += 1
+                diagnostics.errors.append(f"{type(exc).__name__}: {exc}")
+                if attempt + 1 >= MAX_PLAN_TOOL_CALL_ATTEMPTS:
+                    diagnostics.fallback_used = True
+                    logger.warning(
+                        "LLMPlanGenerator could not obtain valid %s tool "
+                        "arguments after %s attempts; falling back to a "
+                        "single-step plan. execution_id=%s error=%s",
+                        self.PLAN_TOOL_NAME,
+                        attempt + 1,
+                        request.execution_id,
+                        exc,
+                    )
+                    return self._fallback_single_step_plan()
+                diagnostics.retry_count += 1
+                retry_feedback = self._invalid_plan_tool_arguments_retry_feedback(exc)
+                logger.warning(
+                    "LLMPlanGenerator received invalid %s tool arguments; "
+                    "retrying plan generation. execution_id=%s attempt=%s error=%s",
+                    self.PLAN_TOOL_NAME,
+                    request.execution_id,
+                    attempt + 1,
+                    exc,
+                )
+                continue
             return self._filter_suggested_tools(
                 plan=plan,
                 available_tool_names=request.available_tool_names,
             )
         raise RuntimeError("LLMPlanGenerator retry loop exited unexpectedly.")
+
+    def _fallback_single_step_plan(self) -> ExecutionPlan:
+        return ExecutionPlan(
+            steps=[
+                PlanStep(
+                    id="final",
+                    task="Answer the user request",
+                    dependencies=[],
+                    description=(
+                        "Analyze the current request and produce the final "
+                        "answer directly from the provided context. Use tools "
+                        "only if they are necessary to satisfy the request."
+                    ),
+                    termination_condition=(
+                        "Stop after final_answer returns a complete answer "
+                        "that addresses the user request."
+                    ),
+                    completion_evidence=(
+                        "The final answer has been returned successfully."
+                    ),
+                    tool_names=[],
+                )
+            ]
+        )
 
     def _filter_suggested_tools(
         self,
@@ -506,6 +593,16 @@ class LLMPlanGenerator(PlanGenerator):
             "Do not answer in natural language."
         )
 
+    def _invalid_plan_tool_arguments_retry_feedback(self, error: Exception) -> str:
+        return (
+            f"The previous {self.PLAN_TOOL_NAME} tool call could not be used: "
+            f"{error}. Call {self.PLAN_TOOL_NAME} exactly once again. Its "
+            "function.arguments must be one complete valid JSON object matching "
+            "the tool schema, with steps and response_language. Do not truncate "
+            "strings, do not include comments, and do not answer in natural "
+            "language outside the tool call."
+        )
+
     def _extract_tool_arguments(
         self,
         response: Any,
@@ -530,10 +627,58 @@ class LLMPlanGenerator(PlanGenerator):
         try:
             payload = json.loads(arguments)
         except json.JSONDecodeError as exc:
-            raise ValueError("Tool call arguments must be valid JSON.") from exc
+            payload = self._repair_json_arguments(
+                arguments=arguments,
+                original_error=exc,
+            )
+            self.last_diagnostics.repaired_argument_count += 1
         if not isinstance(payload, dict):
             raise TypeError("Tool call arguments must decode to an object.")
         return payload
+
+    def _repair_json_arguments(
+        self,
+        *,
+        arguments: str,
+        original_error: json.JSONDecodeError,
+    ) -> Any:
+        if not self._is_structurally_complete_json_object(arguments):
+            raise ValueError(
+                "Tool call arguments appear truncated and must be retried."
+            ) from original_error
+        try:
+            return repair_json_loads(arguments, logging=False)
+        except Exception as exc:
+            raise ValueError("Tool call arguments must be valid JSON.") from exc
+
+    def _is_structurally_complete_json_object(self, arguments: str) -> bool:
+        stripped = arguments.strip()
+        if not stripped.startswith("{") or not stripped.endswith("}"):
+            return False
+
+        pairs = {"}": "{", "]": "["}
+        stack: list[str] = []
+        in_string = False
+        escaped = False
+        for char in stripped:
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == '"':
+                    in_string = False
+                continue
+
+            if char == '"':
+                in_string = True
+            elif char in "{[":
+                stack.append(char)
+            elif char in "}]":
+                if not stack or stack[-1] != pairs[char]:
+                    return False
+                stack.pop()
+        return not in_string and not stack
 
 
 def normalize_tool_names(data: dict[str, Any]) -> list[str]:

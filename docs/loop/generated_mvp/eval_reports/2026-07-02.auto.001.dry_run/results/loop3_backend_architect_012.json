@@ -1,0 +1,49 @@
+{
+  "case_id": "loop3_backend_architect_012",
+  "loop_type": "loop3",
+  "dataset_version": "2026-07-02.auto.001",
+  "transport": {
+    "mode": "dry_run",
+    "task_id": null,
+    "status": "completed",
+    "error": null
+  },
+  "judge": {
+    "passed": true,
+    "score": 1.0,
+    "issues": [],
+    "parsed_output": {
+      "prediction_hits": [],
+      "prediction_misses": [
+        "hard_skill_water"
+      ],
+      "calibration_actions": [
+        "5_minute_slice",
+        "metric_baseline_probe"
+      ],
+      "next_batch_strategy": {
+        "weight_changes": {
+          "hard_skill_match": 0.1,
+          "resume_prestige": -0.1
+        },
+        "rules_not_to_change": [
+          "do_not_remove_hard_skill_probes"
+        ]
+      },
+      "sample_size_warning": "",
+      "quality_gate": {
+        "passed": true,
+        "issues": []
+      }
+    }
+  },
+  "passed": true,
+  "tags": {
+    "job_family": "backend_architect",
+    "outcome_type": "false_positive",
+    "miss_type": "hard_skill_water",
+    "sample_size_band": "cross_job",
+    "outcome_window": "probation",
+    "difficulty": "hard"
+  }
+}

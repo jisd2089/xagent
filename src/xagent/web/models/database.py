@@ -69,6 +69,8 @@ def init_db(db_url: str | None = None) -> None:
         WorkforceAgent,
         WorkforceBuilderMessage,
         WorkforceRun,
+        SelectionEvalResult,
+        SelectionEvalRun,
     )
     from .agent import Agent  # noqa: F401
     from .sandbox import SandboxInfo, SandboxSnapshot  # noqa: F401

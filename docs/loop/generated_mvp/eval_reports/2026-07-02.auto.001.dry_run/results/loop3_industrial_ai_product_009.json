@@ -1,0 +1,47 @@
+{
+  "case_id": "loop3_industrial_ai_product_009",
+  "loop_type": "loop3",
+  "dataset_version": "2026-07-02.auto.001",
+  "transport": {
+    "mode": "dry_run",
+    "task_id": null,
+    "status": "completed",
+    "error": null
+  },
+  "judge": {
+    "passed": true,
+    "score": 1.0,
+    "issues": [],
+    "parsed_output": {
+      "prediction_hits": [],
+      "prediction_misses": [
+        "compliance_issue"
+      ],
+      "calibration_actions": [
+        "compliance_rewrite_check"
+      ],
+      "next_batch_strategy": {
+        "weight_changes": {
+          "compliance_audit": 0.1
+        },
+        "rules_not_to_change": [
+          "do_not_remove_hard_skill_probes"
+        ]
+      },
+      "sample_size_warning": "sample_too_small_for_global_rule",
+      "quality_gate": {
+        "passed": true,
+        "issues": []
+      }
+    }
+  },
+  "passed": true,
+  "tags": {
+    "job_family": "industrial_ai_product",
+    "outcome_type": "human_override_success",
+    "miss_type": "compliance_issue",
+    "sample_size_band": "individual",
+    "outcome_window": "day_30",
+    "difficulty": "hard"
+  }
+}

@@ -1,0 +1,168 @@
+{
+  "dataset_version": "2026-07-02.auto.001",
+  "case_count": {
+    "loop1": 30,
+    "loop2": 15,
+    "loop3": 15
+  },
+  "loops": {
+    "loop1": {
+      "cases": 30,
+      "quality_pass_rate": 1.0,
+      "tags": {
+        "bias_type": {
+          "affinity": 6,
+          "ageism": 6,
+          "halo": 6,
+          "none": 6,
+          "reactance": 6
+        },
+        "claim_risk": {
+          "distancing": 6,
+          "low_risk_control": 6,
+          "metric_inflation": 6,
+          "omission": 6,
+          "role_exaggeration": 6
+        },
+        "competency_focus": {
+          "Balanced": 10,
+          "Hard": 10,
+          "Soft": 10
+        },
+        "compliance_risk": {
+          "age": 5,
+          "family": 5,
+          "health": 5,
+          "none": 5,
+          "origin": 5,
+          "religion": 5
+        },
+        "difficulty": {
+          "easy": 10,
+          "hard": 10,
+          "medium": 10
+        },
+        "experience_band": {
+          "0-3": 10,
+          "10+": 10,
+          "4-10": 10
+        },
+        "hiring_urgency": {
+          "High": 10,
+          "Low": 10,
+          "Med": 10
+        },
+        "interviewer_role": {
+          "Executive": 7,
+          "HR": 8,
+          "HiringManager": 7,
+          "PeerInterviewer": 8
+        },
+        "job_family": {
+          "backend_architect": 6,
+          "industrial_ai_product": 6,
+          "industrial_ai_support": 6,
+          "quality_engineer": 6,
+          "software_developer": 6
+        },
+        "super_stage": {
+          "Establishment": 10,
+          "Exploration": 10,
+          "Maintenance": 10
+        }
+      }
+    },
+    "loop2": {
+      "cases": 15,
+      "quality_pass_rate": 1.0,
+      "tags": {
+        "conflict_type": {
+          "culture_fit_vs_debias": 3,
+          "education_vs_potential": 3,
+          "hard_vs_soft": 3,
+          "none": 3,
+          "urgent_vs_high_standard": 3
+        },
+        "difficulty": {
+          "easy": 5,
+          "hard": 5,
+          "medium": 5
+        },
+        "feedback_source": {
+          "Executive": 3,
+          "HR": 3,
+          "HiringManager": 3,
+          "PeerInterviewer": 3,
+          "Recruiter": 3
+        },
+        "feedback_type": {
+          "competency_weight": 3,
+          "compliance_rule": 3,
+          "risk_preference": 3,
+          "scoring_calibration": 3,
+          "team_context": 3
+        },
+        "hiring_urgency": {
+          "High": 5,
+          "Low": 5,
+          "Med": 5
+        },
+        "job_family": {
+          "backend_architect": 3,
+          "industrial_ai_product": 3,
+          "industrial_ai_support": 3,
+          "quality_engineer": 3,
+          "software_developer": 3
+        }
+      }
+    },
+    "loop3": {
+      "cases": 15,
+      "quality_pass_rate": 1.0,
+      "tags": {
+        "difficulty": {
+          "easy": 5,
+          "hard": 5,
+          "medium": 5
+        },
+        "job_family": {
+          "backend_architect": 3,
+          "industrial_ai_product": 3,
+          "industrial_ai_support": 3,
+          "quality_engineer": 3,
+          "software_developer": 3
+        },
+        "miss_type": {
+          "collaboration_risk": 3,
+          "compliance_issue": 3,
+          "hard_skill_water": 3,
+          "learning_agility_underestimated": 3,
+          "motivation_misread": 3
+        },
+        "outcome_type": {
+          "false_negative": 3,
+          "false_positive": 3,
+          "hit": 3,
+          "human_override_failure": 3,
+          "human_override_success": 3
+        },
+        "outcome_window": {
+          "day_30": 3,
+          "day_60": 2,
+          "day_90": 2,
+          "offer": 3,
+          "probation": 2,
+          "second_round": 3
+        },
+        "sample_size_band": {
+          "batch_20_plus": 4,
+          "cross_job": 3,
+          "individual": 4,
+          "small_5_10": 4
+        }
+      }
+    }
+  },
+  "gaps": [],
+  "quality_pass_rate": 1.0
+}

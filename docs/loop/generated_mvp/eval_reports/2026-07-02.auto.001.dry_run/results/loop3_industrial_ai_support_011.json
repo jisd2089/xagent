@@ -1,0 +1,50 @@
+{
+  "case_id": "loop3_industrial_ai_support_011",
+  "loop_type": "loop3",
+  "dataset_version": "2026-07-02.auto.001",
+  "transport": {
+    "mode": "dry_run",
+    "task_id": null,
+    "status": "completed",
+    "error": null
+  },
+  "judge": {
+    "passed": true,
+    "score": 1.0,
+    "issues": [],
+    "parsed_output": {
+      "prediction_hits": [
+        "hard_skill_match",
+        "ownership"
+      ],
+      "prediction_misses": [],
+      "calibration_actions": [
+        "cross_team_conflict_probe",
+        "feedback_absorption_probe"
+      ],
+      "next_batch_strategy": {
+        "weight_changes": {
+          "constructive_collaboration": 0.1,
+          "hard_skill_match": -0.05
+        },
+        "rules_not_to_change": [
+          "do_not_remove_hard_skill_probes"
+        ]
+      },
+      "sample_size_warning": "",
+      "quality_gate": {
+        "passed": true,
+        "issues": []
+      }
+    }
+  },
+  "passed": true,
+  "tags": {
+    "job_family": "industrial_ai_support",
+    "outcome_type": "hit",
+    "miss_type": "collaboration_risk",
+    "sample_size_band": "batch_20_plus",
+    "outcome_window": "day_90",
+    "difficulty": "medium"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "run_id": "2026-07-02.auto.001.agent31",
+  "dataset_version": "2026-07-02.auto.001",
+  "agent_id": 31,
+  "api_base": "http://localhost",
+  "dry_run": false,
+  "case_count": 3,
+  "passed": 3,
+  "failed": 0,
+  "pass_rate": 1.0,
+  "by_loop": {
+    "loop1": {
+      "total": 3,
+      "passed": 3,
+      "pass_rate": 1.0
+    },
+    "loop2": {
+      "total": 0,
+      "passed": 0,
+      "pass_rate": 0.0
+    },
+    "loop3": {
+      "total": 0,
+      "passed": 0,
+      "pass_rate": 0.0
+    }
+  },
+  "created_at": "2026-07-02T05:33:48.514874+00:00",
+  "result_files": [
+    "results/loop1_industrial_ai_support_001.json",
+    "results/loop1_backend_architect_002.json",
+    "results/loop1_software_developer_003.json"
+  ]
+}

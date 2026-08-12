@@ -1,0 +1,108 @@
+{
+  "case_id": "loop1_software_developer_013",
+  "loop_type": "loop1",
+  "source_type": "synthetic_case",
+  "synthetic": true,
+  "privacy_level": "public",
+  "tags": {
+    "job_family": "software_developer",
+    "experience_band": "0-3",
+    "super_stage": "Exploration",
+    "claim_risk": "distancing",
+    "interviewer_role": "HR",
+    "bias_type": "affinity",
+    "compliance_risk": "none",
+    "hiring_urgency": "High",
+    "competency_focus": "Hard",
+    "difficulty": "easy"
+  },
+  "input": {
+    "job_description": {
+      "job_id": "software_developer_job_013",
+      "title": "Software Developer",
+      "responsibilities": [
+        "分析岗位关键任务并形成可验证交付",
+        "跨团队协作解决复杂问题",
+        "用事实和指标验证结果"
+      ],
+      "required_competencies": [
+        "hard_skill_match",
+        "constructive_collaboration",
+        "ownership",
+        "learning_agility",
+        "resilience_review"
+      ]
+    },
+    "candidate_profile": {
+      "candidate_id": "synthetic_candidate_013",
+      "experience_band": "0-3",
+      "super_stage": "Exploration",
+      "education_summary": "synthetic anonymized profile",
+      "work_experiences": [
+        "负责复杂系统排查、质量验证和跨团队问题闭环"
+      ],
+      "skills": [
+        "problem_analysis",
+        "documentation",
+        "cross_team_coordination"
+      ]
+    },
+    "candidate_claims": [
+      {
+        "claim_id": "claim_001",
+        "claim_text": "候选人描述事故复盘时从我切换到我们，无法说清个人负责动作。",
+        "risk_type": "distancing"
+      }
+    ],
+    "interview_transcript": [
+      {
+        "speaker": "interviewer",
+        "text": "请介绍你最能体现岗位能力的项目。"
+      },
+      {
+        "speaker": "candidate",
+        "text": "候选人描述事故复盘时从我切换到我们，无法说清个人负责动作。"
+      }
+    ],
+    "interviewer_feedback": [
+      {
+        "role": "HR",
+        "text": "高管评价：候选人背景和我很像，气质很适合团队。",
+        "bias_type": "affinity"
+      }
+    ]
+  },
+  "expected_output": {
+    "claim_risks": [
+      "distancing"
+    ],
+    "required_probes": [
+      "5_minute_slice",
+      "counterfactual_probe",
+      "failure_review_probe"
+    ],
+    "bias_audit": [
+      "affinity"
+    ],
+    "compliance_rewrites": [],
+    "bars_dimensions": [
+      "constructive_collaboration",
+      "ownership",
+      "learning_agility",
+      "hard_skill_match",
+      "resilience_review"
+    ],
+    "decision_allowed_values": [
+      "录取",
+      "降级录取",
+      "备选池挂起",
+      "拒绝"
+    ]
+  },
+  "quality": {
+    "passed": true,
+    "issues": []
+  },
+  "created_at": "2026-07-02T00:00:00Z",
+  "version": "v1"
+}

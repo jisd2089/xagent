@@ -70,14 +70,16 @@ services:
     networks:
       - xagent_network
 
-  # Celery worker for triggers and KB ingestion. Agent execution stays in backend.
+  # Celery worker for triggers, KB ingestion, and loop eval jobs.
+  # Agent execution itself stays in backend; this worker consumes durable
+  # background jobs from Redis and writes results into Postgres.
   worker:
     image: xprobe/xagent-backend:${XAGENT_IMAGE_TAG:-20260629.1}
     container_name: xagent_worker
     restart: unless-stopped
+    entrypoint: ["/opt/venv/bin/celery"]
     command:
       [
-        "celery",
         "-A",
         "xagent.web.jobs.celery_app:celery_app",
         "worker",
@@ -108,36 +110,36 @@ services:
       - xagent_network
 
   # Celery beat schedules trigger scans. It never runs agent execution.
-  scheduler:
-    image: xprobe/xagent-backend:${XAGENT_IMAGE_TAG:-20260629.1}
-    container_name: xagent_scheduler
-    restart: unless-stopped
-    command:
-      [
-        "celery",
-        "-A",
-        "xagent.web.jobs.celery_app:celery_app",
-        "beat",
-        "--loglevel=INFO",
-      ]
-    environment:
-      - DATABASE_URL=postgresql://xagent:${POSTGRES_PASSWORD:-xagent_password}@postgres:5432/xagent
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-xagent_password}
-      - XAGENT_REDIS_URL=redis://redis:6379/0
-      - XAGENT_CELERY_ENABLED=${XAGENT_CELERY_ENABLED:-true}
-      - XAGENT_CELERY_BROKER_URL=redis://redis:6379/1
-      - XAGENT_BACKGROUND_JOB_VISIBILITY_TIMEOUT_SECONDS=${XAGENT_BACKGROUND_JOB_VISIBILITY_TIMEOUT_SECONDS:-3600}
-    env_file:
-      - .env
-    volumes:
-      - xagent_data:/root/.xagent
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - xagent_network
+  # scheduler:
+  #   image: xprobe/xagent-backend:${XAGENT_IMAGE_TAG:-20260629.1}
+  #   container_name: xagent_scheduler
+  #   restart: unless-stopped
+  #   command:
+  #     [
+  #       "celery",
+  #       "-A",
+  #       "xagent.web.jobs.celery_app:celery_app",
+  #       "beat",
+  #       "--loglevel=INFO",
+  #     ]
+  #   environment:
+  #     - DATABASE_URL=postgresql://xagent:${POSTGRES_PASSWORD:-xagent_password}@postgres:5432/xagent
+  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-xagent_password}
+  #     - XAGENT_REDIS_URL=redis://redis:6379/0
+  #     - XAGENT_CELERY_ENABLED=${XAGENT_CELERY_ENABLED:-true}
+  #     - XAGENT_CELERY_BROKER_URL=redis://redis:6379/1
+  #     - XAGENT_BACKGROUND_JOB_VISIBILITY_TIMEOUT_SECONDS=${XAGENT_BACKGROUND_JOB_VISIBILITY_TIMEOUT_SECONDS:-3600}
+  #   env_file:
+  #     - .env
+  #   volumes:
+  #     - xagent_data:/root/.xagent
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   networks:
+  #     - xagent_network
 
   # PostgreSQL Database
   postgres:

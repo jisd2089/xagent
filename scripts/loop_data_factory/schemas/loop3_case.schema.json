@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xagent.local/schemas/loop3_case.schema.json",
+  "title": "Loop 3 Outcome Calibration Case",
+  "allOf": [
+    {
+      "$ref": "loop_case.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "loop_type": {
+          "const": "loop3"
+        },
+        "tags": {
+          "type": "object",
+          "required": [
+            "job_family",
+            "outcome_type",
+            "miss_type",
+            "sample_size_band",
+            "outcome_window"
+          ]
+        },
+        "input": {
+          "type": "object",
+          "required": [
+            "batch_summary",
+            "candidate_outcomes"
+          ]
+        },
+        "expected_output": {
+          "type": "object",
+          "required": [
+            "prediction_hits",
+            "prediction_misses",
+            "calibration_expected",
+            "sample_size_warning"
+          ],
+          "properties": {
+            "calibration_expected": {
+              "type": "object",
+              "required": [
+                "weight_changes",
+                "probe_changes",
+                "rules_not_to_change"
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

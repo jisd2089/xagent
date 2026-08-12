@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xagent.local/schemas/loop_case.schema.json",
+  "title": "LoopCase",
+  "type": "object",
+  "required": [
+    "case_id",
+    "loop_type",
+    "source_type",
+    "synthetic",
+    "privacy_level",
+    "tags",
+    "input",
+    "expected_output",
+    "quality",
+    "created_at",
+    "version"
+  ],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "loop_type": {
+      "type": "string",
+      "enum": ["loop1", "loop2", "loop3"]
+    },
+    "source_type": {
+      "type": "string",
+      "enum": [
+        "public_knowledge",
+        "synthetic_case",
+        "anonymized_private_seed",
+        "production_feedback"
+      ]
+    },
+    "synthetic": {
+      "type": "boolean"
+    },
+    "privacy_level": {
+      "type": "string",
+      "enum": ["public", "internal", "restricted"]
+    },
+    "tags": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["string", "number", "boolean"]
+      }
+    },
+    "input": {
+      "type": "object"
+    },
+    "expected_output": {
+      "type": "object"
+    },
+    "quality": {
+      "type": "object",
+      "required": ["passed", "issues"],
+      "properties": {
+        "passed": {
+          "type": "boolean"
+        },
+        "issues": {
+          "type": "array"
+        }
+      },
+      "additionalProperties": true
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

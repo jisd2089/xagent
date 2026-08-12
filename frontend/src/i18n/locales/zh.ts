@@ -47,6 +47,7 @@ const zh = {
     files: "文件",
     memory: "记忆",
     monitoring: "监控",
+    loopEval: "Loop Eval",
     knowledgeBase: "知识库",
     knowledgeBaseDetail: "知识库详情",
     userManagement: "用户管理",

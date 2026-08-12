@@ -1,0 +1,114 @@
+{
+  "case_id": "loop1_backend_architect_022",
+  "loop_type": "loop1",
+  "source_type": "synthetic_case",
+  "synthetic": true,
+  "privacy_level": "public",
+  "tags": {
+    "job_family": "backend_architect",
+    "experience_band": "0-3",
+    "super_stage": "Exploration",
+    "claim_risk": "role_exaggeration",
+    "interviewer_role": "PeerInterviewer",
+    "bias_type": "halo",
+    "compliance_risk": "health",
+    "hiring_urgency": "High",
+    "competency_focus": "Hard",
+    "difficulty": "easy"
+  },
+  "input": {
+    "job_description": {
+      "job_id": "backend_architect_job_022",
+      "title": "Backend Architect",
+      "responsibilities": [
+        "分析岗位关键任务并形成可验证交付",
+        "跨团队协作解决复杂问题",
+        "用事实和指标验证结果"
+      ],
+      "required_competencies": [
+        "hard_skill_match",
+        "constructive_collaboration",
+        "ownership",
+        "learning_agility",
+        "resilience_review"
+      ]
+    },
+    "candidate_profile": {
+      "candidate_id": "synthetic_candidate_022",
+      "experience_band": "0-3",
+      "super_stage": "Exploration",
+      "education_summary": "synthetic anonymized profile",
+      "work_experiences": [
+        "负责复杂系统排查、质量验证和跨团队问题闭环"
+      ],
+      "skills": [
+        "problem_analysis",
+        "documentation",
+        "cross_team_coordination"
+      ]
+    },
+    "candidate_claims": [
+      {
+        "claim_id": "claim_001",
+        "claim_text": "候选人称主导整体架构优化，但回答中多次使用项目组完成、大家一起推进。",
+        "risk_type": "role_exaggeration"
+      }
+    ],
+    "interview_transcript": [
+      {
+        "speaker": "interviewer",
+        "text": "请介绍你最能体现岗位能力的项目。"
+      },
+      {
+        "speaker": "candidate",
+        "text": "候选人称主导整体架构优化，但回答中多次使用项目组完成、大家一起推进。"
+      },
+      {
+        "speaker": "interviewer",
+        "text": "你身体有没有问题？能不能扛住高强度？"
+      }
+    ],
+    "interviewer_feedback": [
+      {
+        "role": "PeerInterviewer",
+        "text": "HR 评价：候选人来自知名公司，应该不会有太大问题。",
+        "bias_type": "halo"
+      }
+    ]
+  },
+  "expected_output": {
+    "claim_risks": [
+      "role_exaggeration"
+    ],
+    "required_probes": [
+      "5_minute_slice",
+      "counterfactual_probe",
+      "failure_review_probe"
+    ],
+    "bias_audit": [
+      "halo"
+    ],
+    "compliance_rewrites": [
+      "health"
+    ],
+    "bars_dimensions": [
+      "constructive_collaboration",
+      "ownership",
+      "learning_agility",
+      "hard_skill_match",
+      "resilience_review"
+    ],
+    "decision_allowed_values": [
+      "录取",
+      "降级录取",
+      "备选池挂起",
+      "拒绝"
+    ]
+  },
+  "quality": {
+    "passed": true,
+    "issues": []
+  },
+  "created_at": "2026-07-02T00:00:00Z",
+  "version": "v1"
+}

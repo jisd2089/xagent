@@ -1,0 +1,33 @@
+{
+  "case_id": "loop1_software_developer_003",
+  "loop_type": "loop1",
+  "dataset_version": "2026-07-02.auto.001",
+  "transport": {
+    "mode": "http_reuse",
+    "task_id": 196,
+    "status": "completed",
+    "error": null
+  },
+  "judge": {
+    "passed": true,
+    "score": 1.0,
+    "issues": [],
+    "parsed_output": {
+      "_format": "markdown",
+      "_text": "## DAG 执行评估：已完成\n\n所有 7 个步骤均已成功完成，最终报告 `step7` 提供了完整的 Loop 1 结构化输出。\n\n### 覆盖检查\n\n| 检查点 | 状态 | 位置 |\n|---|---|---|\n| `claim_risks: distancing` | ✅ 已覆盖 | 第一节 — claim_001 定级为 High，直接命中 BARS Ownership L1 |\n| `required_probes: 5_minute_slice` | ✅ 已设计 | 第二节 Probe 1，含完整追问文本、子问题、预期证据、失败信号 |\n| `required_probes: counterfactual_probe` | ✅ 已设计 | 第二节 Probe 2，含反事实情境与协作冲突验证 |\n| `required_probes: failure_review_probe` | ✅ 已设计 | 第二节 Probe 3，含失败归因与学习闭环验证 |\n| `bias_audit: affinity` | ✅ 已审计 | 第三节 — Hiring Manager 亲和偏见定级 High，偏差+2至+4分，含5项校准动作 |\n| `compliance_rewrites: religion` | ✅ 已审查 | 第四节 — 宗教违规定级 High，提供方案A/B合规改写 |\n| `bars_dimensions: 5个维度` | ✅ 已评分 | 第五节 — 五维度全评分，含证据摘要、置信度、可逆路径 |\n| `decision_allowed_values` | ✅ 已选定 | 第六节 — **备选池挂起**，附完整决策理由及释放条件 |\n\n### 最终决策\n\n> 🔶 **备选池挂起** — 当前证据集合无法支撑「录取」或「拒绝」，需在5个工作日内完成三项 BEI 追问后重新评估。若 Probe 1 穿透成功（还原≥3/5物理事实细节）且 Ownership 上调至≥2，可转入「降级录取」或「录取」路径；若穿透失败，转「拒绝」。"
+    }
+  },
+  "passed": true,
+  "tags": {
+    "job_family": "software_developer",
+    "experience_band": "10+",
+    "super_stage": "Maintenance",
+    "claim_risk": "distancing",
+    "interviewer_role": "HiringManager",
+    "bias_type": "affinity",
+    "compliance_risk": "religion",
+    "hiring_urgency": "Low",
+    "competency_focus": "Balanced",
+    "difficulty": "hard"
+  }
+}

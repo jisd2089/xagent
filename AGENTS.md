@@ -2,6 +2,68 @@
 
 Xagent is a powerful and flexible framework for building and running AI-powered agents with support for various execution patterns, tools, memory management, and observability.
 
+## Engineering Collaboration Protocol
+
+Treat yourself as an engineering collaborator for this repository, not as a passive assistant.
+
+- Deliver complete, reviewable units of work. A useful delivery explains what changed, why it changed, what was verified, and what trade-offs remain.
+- Default to doing the next necessary step when it is part of the task. Do not stop to ask whether to continue when the path is reversible and can be judged from the codebase.
+- Ask the user only when continuing would likely produce work opposite to the user's intent. Do not ask about reversible implementation details, ordinary style choices, or obvious follow-up steps.
+- Prioritize correctness over conversational comfort. The order of authority is:
+  1. The task completion standard: code compiles, tests pass, types check, and the feature works.
+  2. Existing project style and architecture, learned from reading the code.
+  3. The user's explicit, unambiguous instruction.
+- Report results at the end with engineering substance. Process chatter is not a substitute for verification.
+
+## Windows, WSL, and Shell Safety
+
+This repository is often operated from Windows while also using WSL. Be careful with multi-layer command parsing.
+
+- Prefer simple, single-purpose commands. For file reading, search, git inspection, and script checks, WSL commands are often less error-prone than complex PowerShell pipelines.
+- Use `rg` first for code search. If WSL lacks `rg`, avoid unbounded full-repo `grep -R`; restrict searches to relevant directories.
+- Do not pass secrets containing `$`, quotes, or shell metacharacters through `wsl.exe env NAME=value ...` from PowerShell. PowerShell or the outer shell may expand or truncate values before WSL receives them.
+- Do not echo full passwords, tokens, API keys, kubeconfigs, or other sensitive values in command output.
+- When sensitive values must be set for a WSL command, assign them inside the WSL shell and escape literal `$` as needed, for example:
+
+```powershell
+wsl.exe -- bash -lc 'PASSWORD=p\$\$word command-that-reads-password-from-env'
+```
+
+- Avoid complex nested one-liners that mix PowerShell, `wsl.exe bash -lc`, SSH, Python `-c`, heredocs, regular expressions, pipes, and shell variables. If a command needs loops, dictionaries, JSON, multi-line Python, or fragile quoting, write a small script in the repository or use explicit separate commands.
+- Do not rely on unescaped `$var` / `${var}` inside a PowerShell string intended for WSL. The outer layer may expand it before Bash sees it.
+- WSL does not by itself solve PowerShell pre-parsing. The command string is
+  parsed by PowerShell before `wsl.exe` receives it, so Bash fragments such as
+  `$c:$base/path` can fail in PowerShell with `变量引用无效` before they ever
+  reach WSL. When a WSL command needs Bash variables next to a colon, use
+  `${c}:${base}/path` and protect the whole Bash program from PowerShell
+  expansion, or avoid the loop and run explicit `docker cp` / shell commands
+  one by one. For fragile Docker hot-patch loops, prefer explicit commands over
+  clever nested `for` loops.
+- Avoid passing complex regex such as `grep -E "a|b"` through multiple shells. Prefer a script, a pattern file, or simpler sequential filters.
+- For remote SSH or `kubectl` work, avoid packing many remote operations into one nested command string with `;`, `&&`, pipes, or heavy quoting. Prefer one SSH command per clear operation, or upload and run a script.
+- If WSL-exposed Docker Desktop or `kubectl` commands fail with local `Input/output error`, first try `wsl.exe --shutdown` and rerun before treating it as a Kubernetes API problem.
+- Use PowerShell directly only when the task requires Windows-specific tooling or the user explicitly asks for it.
+- Docker Desktop may be accessible from WSL even when the Windows-side Docker
+  client fails with permission errors such as `Access is denied` on
+  `//./pipe/docker_engine` or cannot read `~/.docker/config.json`. In this
+  repo, prefer checking service state from WSL before concluding Docker is down
+  or asking to start Compose, for example:
+
+```bash
+wsl bash -lc 'cd /mnt/d/github/xagent && docker compose ps'
+wsl bash -lc 'cd /mnt/d/github/xagent && docker logs xagent_nginx --tail 80'
+```
+
+- Do not conclude that port 80 is not listening solely from a failed
+  non-elevated Windows-side check. Cross-check through WSL Docker/Compose and
+  direct HTTP probes.
+- When `http://localhost` times out in Windows PowerShell but
+  `http://127.0.0.1` works, suspect a localhost resolution path difference,
+  especially IPv6 `::1` versus IPv4 `127.0.0.1`. Prefer resolving this class of
+  issue through WSL instead of Windows-side workarounds: run the localhost
+  diagnostics, login checks, Docker checks, and Agent 31 loop regression commands
+  from WSL. Keep generated URLs as `http://localhost`.
+
 ## Features
 
 - **Agent Patterns**: ReAct, DAG plan-execute
@@ -189,6 +251,14 @@ LANGFUSE_SECRET_KEY="your-langfuse-secret-key"
 - Prefer the same prefix in PR titles so split PRs are easy to scan.
 - Keep branch names meaningful and task-oriented, for example `fix/remove-agent-v1` or `feat/agent-builder-preview`. Avoid generic agent/tool prefixes that do not describe the work.
 
+**Agent 31 loop regression:**
+- For the interview psychologist loop regression work, use `http://localhost` as the base URL. Do not default generated scripts, docs, or reports to a port-qualified localhost URL for this flow unless the user explicitly asks for that port.
+- Run Agent 31 HTTP regression from WSL when debugging local Docker/localhost issues. The known-good flow is: login to `http://localhost` as admin, rotate or obtain the Agent 31 runtime API key, call `/v1/chat/tasks`, then poll `/v1/chat/tasks/{task_id}`.
+- Agent 31 is configured for DAG `think` mode and a single smoke case can take 7-10 minutes. Use a per-case timeout around 900 seconds for real HTTP regression; shorter 120-240 second timeouts can falsely report a timeout while the task is still running.
+- If a completed Agent 31 task already exists, prefer rejudging it with `scripts/loop_data_factory/run_agent31_regression.py --reuse-task-id <id> --limit 1` instead of creating another expensive run.
+- A failure like `Tool call arguments must be valid JSON.` during `dag_plan_generation_failed` is a model/DAG planning output-format failure, not a localhost, Docker, login, or runtime API key failure. Treat it as a planning retry/repair problem.
+- The planner repair path belongs inside `LLMPlanGenerator.generate_plan`: when `generate_execution_plan` has invalid JSON or invalid plan arguments, feed the error back as a user retry message and call the planning tool again. This keeps the failure local to planning instead of surfacing as a failed task.
+
 **Local data locations:**
 - The default storage root is `~/.xagent`, configured by `XAGENT_STORAGE_ROOT`.
 - The default SQLite database is `~/.xagent/xagent.db`, unless `DATABASE_URL` is set.
@@ -271,6 +341,27 @@ pytest tests/core/agent/test_agent.py
 pytest tests/web_integration/test_comprehensive.py
 ```
 
+### Local Verification Fallbacks
+
+Some Windows/WSL workstations do not have the full Python test environment
+available in every shell. In the current local setup, WSL has `python3` but may
+not have `pytest`, while Windows-side `python` may be unavailable.
+
+- Do not treat missing `pytest` or missing Windows `python` as a product
+  failure. Report it as an environment limitation.
+- For stdlib-only scripts and generators, verify behavior directly with WSL
+  `python3` from the repository root, for example:
+
+```bash
+wsl bash -lc 'cd /mnt/d/github/xagent && python3 scripts/path/to/script.py --help'
+```
+
+- Still add or update pytest test files when the change warrants tests. The
+  tests should be runnable in the normal development environment even if the
+  current workstation can only run direct CLI smoke checks.
+- In final delivery notes, distinguish direct CLI verification from skipped
+  pytest execution, and include the exact reason when pytest could not run.
+
 ### Code Quality and Linting
 ```bash
 # Format code with ruff
@@ -293,7 +384,7 @@ Xagent has separate frontend and backend components:
 **Backend (Web API):**
 ```bash
 python -m xagent.web.__main__
-# Runs on http://localhost:8000
+# For Agent 31 loop regression, route through http://localhost.
 ```
 
 **Frontend (Web UI):**
@@ -302,7 +393,7 @@ cd frontend
 npm run dev    # Development mode with hot-reload
 npm run build  # Production build
 npm run start  # Production mode
-# Frontend runs on http://localhost:3000
+# Use the localhost URL printed by the frontend dev server.
 ```
 
 **Development Mode:**

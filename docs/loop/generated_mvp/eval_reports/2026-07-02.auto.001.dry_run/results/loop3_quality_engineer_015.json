@@ -1,0 +1,49 @@
+{
+  "case_id": "loop3_quality_engineer_015",
+  "loop_type": "loop3",
+  "dataset_version": "2026-07-02.auto.001",
+  "transport": {
+    "mode": "dry_run",
+    "task_id": null,
+    "status": "completed",
+    "error": null
+  },
+  "judge": {
+    "passed": true,
+    "score": 1.0,
+    "issues": [],
+    "parsed_output": {
+      "prediction_hits": [
+        "hard_skill_match",
+        "ownership"
+      ],
+      "prediction_misses": [],
+      "calibration_actions": [
+        "offer_motivation_probe",
+        "constraint_probe"
+      ],
+      "next_batch_strategy": {
+        "weight_changes": {
+          "motivation_probe": 0.1
+        },
+        "rules_not_to_change": [
+          "do_not_remove_hard_skill_probes"
+        ]
+      },
+      "sample_size_warning": "",
+      "quality_gate": {
+        "passed": true,
+        "issues": []
+      }
+    }
+  },
+  "passed": true,
+  "tags": {
+    "job_family": "quality_engineer",
+    "outcome_type": "human_override_failure",
+    "miss_type": "motivation_misread",
+    "sample_size_band": "batch_20_plus",
+    "outcome_window": "day_30",
+    "difficulty": "hard"
+  }
+}

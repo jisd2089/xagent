@@ -1,0 +1,29 @@
+{
+  "run_id": "2026-07-02.auto.001.dry_run",
+  "dataset_version": "2026-07-02.auto.001",
+  "agent_id": 31,
+  "api_base": "http://localhost",
+  "dry_run": true,
+  "case_count": 60,
+  "passed": 60,
+  "failed": 0,
+  "pass_rate": 1.0,
+  "by_loop": {
+    "loop1": {
+      "total": 30,
+      "passed": 30,
+      "pass_rate": 1.0
+    },
+    "loop2": {
+      "total": 15,
+      "passed": 15,
+      "pass_rate": 1.0
+    },
+    "loop3": {
+      "total": 15,
+      "passed": 15,
+      "pass_rate": 1.0
+    }
+  },
+  "created_at": "2026-07-02T03:27:39.277644+00:00"
+}

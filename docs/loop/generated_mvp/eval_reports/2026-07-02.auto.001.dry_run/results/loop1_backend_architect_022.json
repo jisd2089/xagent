@@ -1,0 +1,58 @@
+{
+  "case_id": "loop1_backend_architect_022",
+  "loop_type": "loop1",
+  "dataset_version": "2026-07-02.auto.001",
+  "transport": {
+    "mode": "dry_run",
+    "task_id": null,
+    "status": "completed",
+    "error": null
+  },
+  "judge": {
+    "passed": true,
+    "score": 1.0,
+    "issues": [],
+    "parsed_output": {
+      "claim_audit": [
+        "role_exaggeration"
+      ],
+      "bei_probe_plan": [
+        "5_minute_slice",
+        "counterfactual_probe",
+        "failure_review_probe"
+      ],
+      "bias_audit": [
+        "halo"
+      ],
+      "compliance_rewrites": [
+        "health"
+      ],
+      "bars_scorecard": [
+        "constructive_collaboration",
+        "ownership",
+        "learning_agility",
+        "hard_skill_match",
+        "resilience_review"
+      ],
+      "decision": "备选池挂起",
+      "quality_gate": {
+        "passed": true,
+        "issues": [],
+        "self_check": "All high-risk claims have evidence probes."
+      }
+    }
+  },
+  "passed": true,
+  "tags": {
+    "job_family": "backend_architect",
+    "experience_band": "0-3",
+    "super_stage": "Exploration",
+    "claim_risk": "role_exaggeration",
+    "interviewer_role": "PeerInterviewer",
+    "bias_type": "halo",
+    "compliance_risk": "health",
+    "hiring_urgency": "High",
+    "competency_focus": "Hard",
+    "difficulty": "easy"
+  }
+}

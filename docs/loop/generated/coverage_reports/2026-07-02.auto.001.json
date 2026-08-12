@@ -1,0 +1,150 @@
+{
+  "dataset_version": "2026-07-02.auto.001",
+  "case_count": {
+    "loop1": 6,
+    "loop2": 3,
+    "loop3": 3
+  },
+  "loops": {
+    "loop1": {
+      "cases": 6,
+      "quality_pass_rate": 1.0,
+      "tags": {
+        "bias_type": {
+          "affinity": 1,
+          "ageism": 1,
+          "halo": 1,
+          "none": 1,
+          "reactance": 2
+        },
+        "claim_risk": {
+          "distancing": 1,
+          "low_risk_control": 1,
+          "metric_inflation": 2,
+          "omission": 1,
+          "role_exaggeration": 1
+        },
+        "competency_focus": {
+          "Balanced": 2,
+          "Hard": 2,
+          "Soft": 2
+        },
+        "compliance_risk": {
+          "age": 1,
+          "family": 1,
+          "health": 1,
+          "none": 1,
+          "origin": 1,
+          "religion": 1
+        },
+        "difficulty": {
+          "easy": 2,
+          "hard": 2,
+          "medium": 2
+        },
+        "experience_band": {
+          "0-3": 2,
+          "10+": 2,
+          "4-10": 2
+        },
+        "hiring_urgency": {
+          "High": 2,
+          "Low": 2,
+          "Med": 2
+        },
+        "interviewer_role": {
+          "Executive": 1,
+          "HR": 2,
+          "HiringManager": 1,
+          "PeerInterviewer": 2
+        },
+        "job_family": {
+          "backend_architect": 1,
+          "industrial_ai_product": 1,
+          "industrial_ai_support": 2,
+          "quality_engineer": 1,
+          "software_developer": 1
+        },
+        "super_stage": {
+          "Establishment": 2,
+          "Exploration": 2,
+          "Maintenance": 2
+        }
+      }
+    },
+    "loop2": {
+      "cases": 3,
+      "quality_pass_rate": 1.0,
+      "tags": {
+        "conflict_type": {
+          "education_vs_potential": 1,
+          "hard_vs_soft": 1,
+          "urgent_vs_high_standard": 1
+        },
+        "difficulty": {
+          "easy": 1,
+          "hard": 1,
+          "medium": 1
+        },
+        "feedback_source": {
+          "HR": 1,
+          "HiringManager": 1,
+          "Recruiter": 1
+        },
+        "feedback_type": {
+          "competency_weight": 1,
+          "risk_preference": 1,
+          "team_context": 1
+        },
+        "hiring_urgency": {
+          "High": 1,
+          "Low": 1,
+          "Med": 1
+        },
+        "job_family": {
+          "backend_architect": 1,
+          "industrial_ai_support": 1,
+          "software_developer": 1
+        }
+      }
+    },
+    "loop3": {
+      "cases": 3,
+      "quality_pass_rate": 1.0,
+      "tags": {
+        "difficulty": {
+          "easy": 1,
+          "hard": 1,
+          "medium": 1
+        },
+        "job_family": {
+          "backend_architect": 1,
+          "industrial_ai_support": 1,
+          "software_developer": 1
+        },
+        "miss_type": {
+          "collaboration_risk": 1,
+          "hard_skill_water": 1,
+          "learning_agility_underestimated": 1
+        },
+        "outcome_type": {
+          "false_negative": 1,
+          "false_positive": 1,
+          "hit": 1
+        },
+        "outcome_window": {
+          "day_30": 1,
+          "offer": 1,
+          "second_round": 1
+        },
+        "sample_size_band": {
+          "batch_20_plus": 1,
+          "individual": 1,
+          "small_5_10": 1
+        }
+      }
+    }
+  },
+  "gaps": [],
+  "quality_pass_rate": 1.0
+}

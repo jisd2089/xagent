@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xagent.local/schemas/loop2_case.schema.json",
+  "title": "Loop 2 Hiring Feedback Spec Update Case",
+  "allOf": [
+    {
+      "$ref": "loop_case.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "loop_type": {
+          "const": "loop2"
+        },
+        "tags": {
+          "type": "object",
+          "required": [
+            "job_family",
+            "feedback_source",
+            "feedback_type",
+            "conflict_type"
+          ]
+        },
+        "input": {
+          "type": "object",
+          "required": [
+            "selection_loop_profile",
+            "stakeholder_feedback",
+            "competency_weights_before"
+          ]
+        },
+        "expected_output": {
+          "type": "object",
+          "required": [
+            "expected_weight_update",
+            "expected_probe_update",
+            "conflict_resolution",
+            "human_review_required"
+          ],
+          "properties": {
+            "expected_weight_update": {
+              "type": "object",
+              "minProperties": 1
+            },
+            "expected_probe_update": {
+              "type": "object",
+              "required": ["add", "downrank", "remove"]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

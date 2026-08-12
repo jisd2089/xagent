@@ -1,0 +1,63 @@
+{
+  "case_id": "loop3_industrial_ai_support_001",
+  "loop_type": "loop3",
+  "source_type": "synthetic_case",
+  "synthetic": true,
+  "privacy_level": "public",
+  "tags": {
+    "job_family": "industrial_ai_support",
+    "outcome_type": "hit",
+    "miss_type": "collaboration_risk",
+    "sample_size_band": "individual",
+    "outcome_window": "second_round",
+    "difficulty": "easy"
+  },
+  "input": {
+    "batch_summary": {
+      "job_id": "industrial_ai_support_job_001",
+      "candidate_count": 1,
+      "agent_recommended_hire": 1,
+      "actual_success_count": 1,
+      "outcome_window": "second_round"
+    },
+    "candidate_outcomes": [
+      {
+        "candidate_id": "synthetic_candidate_001_001",
+        "agent_recommendation": "录取",
+        "human_decision": "采纳",
+        "actual_outcome": "high_performer",
+        "evidence": "入职后跨团队冲突明显，不愿接受反馈。"
+      }
+    ]
+  },
+  "expected_output": {
+    "prediction_hits": [
+      "hard_skill_match",
+      "ownership"
+    ],
+    "prediction_misses": [],
+    "calibration_expected": {
+      "weight_changes": {
+        "constructive_collaboration": 0.1,
+        "hard_skill_match": -0.05
+      },
+      "probe_changes": [
+        "cross_team_conflict_probe",
+        "feedback_absorption_probe"
+      ],
+      "rules_not_to_change": [
+        "do_not_remove_hard_skill_probes"
+      ],
+      "human_review_required": [
+        "sample_size_review"
+      ]
+    },
+    "sample_size_warning": "sample_too_small_for_global_rule"
+  },
+  "quality": {
+    "passed": true,
+    "issues": []
+  },
+  "created_at": "2026-07-02T00:00:00Z",
+  "version": "v1"
+}

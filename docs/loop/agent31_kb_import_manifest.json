@@ -1,0 +1,112 @@
+{
+  "interview_psychologist_loop_kb:agent31_deep_research_test_prompts.md": {
+    "sha256": "a251e369855f0b99ab731652aa2e50f7f441b5fe88ba9bbdae5ca15c2258548f",
+    "size_bytes": 4933,
+    "collection": "interview_psychologist_loop_kb",
+    "source": "agent31_deep_research_test_prompts.md",
+    "embedding_model_id": "text-embedding-v4",
+    "chunk_strategy": "markdown",
+    "imported_at": "2026-07-02T06:28:21.539894+00:00",
+    "seeded_from_existing_import": true
+  },
+  "interview_psychologist_loop_kb:deep_research_data_inventory.md": {
+    "sha256": "eb7828772ffa8dcb142de8b67d354db6465107b0881b2fd6be90642231981916",
+    "size_bytes": 4250,
+    "collection": "interview_psychologist_loop_kb",
+    "source": "deep_research_data_inventory.md",
+    "embedding_model_id": "text-embedding-v4",
+    "chunk_strategy": "markdown",
+    "imported_at": "2026-07-02T06:28:21.281338+00:00",
+    "seeded_from_existing_import": true
+  },
+  "interview_psychologist_loop_kb:interview_psychologist_agent_three_loops_design.md": {
+    "sha256": "e384a12acf8fecd19def066137a2e583db87d46927946d9377ace7dea34a9574",
+    "size_bytes": 22823,
+    "collection": "interview_psychologist_loop_kb",
+    "source": "interview_psychologist_agent_three_loops_design.md",
+    "embedding_model_id": "text-embedding-v4",
+    "chunk_strategy": "markdown",
+    "imported_at": "2026-07-02T06:28:21.457601+00:00",
+    "seeded_from_existing_import": true
+  },
+  "interview_psychologist_loop_kb:interview_psychologist_agent_three_loops_requirements.md": {
+    "sha256": "54ffb92240e67387e52322d564d6ba4a9b4af4012200dbef0eeb1f724f24bea1",
+    "size_bytes": 25614,
+    "collection": "interview_psychologist_loop_kb",
+    "source": "interview_psychologist_agent_three_loops_requirements.md",
+    "embedding_model_id": "text-embedding-v4",
+    "chunk_strategy": "markdown",
+    "imported_at": "2026-07-02T06:28:21.483204+00:00",
+    "seeded_from_existing_import": true
+  },
+  "interview_psychologist_loop_kb:local_seed_case_anonymized.md": {
+    "sha256": "385b93b2619b0479b42b1287cdd18320709cd49e31518f58d9ef8e7bbe5037a2",
+    "size_bytes": 5945,
+    "collection": "interview_psychologist_loop_kb",
+    "source": "local_seed_case_anonymized.md",
+    "embedding_model_id": "text-embedding-v4",
+    "chunk_strategy": "markdown",
+    "imported_at": "2026-07-02T06:28:21.414565+00:00",
+    "seeded_from_existing_import": true
+  },
+  "interview_psychologist_loop_kb:loop_calibration_seed_dataset.md": {
+    "sha256": "1def73c21493eaabf2ff1e1b50a2feea0a61cf2a7c5fb73afb0a913b7c2f5aee",
+    "size_bytes": 4556,
+    "collection": "interview_psychologist_loop_kb",
+    "source": "loop_calibration_seed_dataset.md",
+    "embedding_model_id": "text-embedding-v4",
+    "chunk_strategy": "markdown",
+    "imported_at": "2026-07-02T06:28:21.388467+00:00",
+    "seeded_from_existing_import": true
+  },
+  "interview_psychologist_loop_kb:recruitment_compliance_guardrails.md": {
+    "sha256": "80e9c345628b1d0a28199ddd886ce8fe2583f244f11b9312b6d7d4d3ffe1c04e",
+    "size_bytes": 5539,
+    "collection": "interview_psychologist_loop_kb",
+    "source": "recruitment_compliance_guardrails.md",
+    "embedding_model_id": "text-embedding-v4",
+    "chunk_strategy": "markdown",
+    "imported_at": "2026-07-02T06:28:21.311167+00:00",
+    "seeded_from_existing_import": true
+  },
+  "interview_psychologist_loop_kb:software_industrial_ai_competency_library.md": {
+    "sha256": "b960f252cac6fb5b93af0de8fc2468e1ff6091d87f93c87b22688adba4119bb5",
+    "size_bytes": 5687,
+    "collection": "interview_psychologist_loop_kb",
+    "source": "software_industrial_ai_competency_library.md",
+    "embedding_model_id": "text-embedding-v4",
+    "chunk_strategy": "markdown",
+    "imported_at": "2026-07-02T06:28:21.360786+00:00",
+    "seeded_from_existing_import": true
+  },
+  "interview_psychologist_loop_kb:structured_interview_bei_bars_library.md": {
+    "sha256": "1946c356f7de531edb1382e12f1232977606943ef96d3df0f34fa24105c06bb6",
+    "size_bytes": 6375,
+    "collection": "interview_psychologist_loop_kb",
+    "source": "structured_interview_bei_bars_library.md",
+    "embedding_model_id": "text-embedding-v4",
+    "chunk_strategy": "markdown",
+    "imported_at": "2026-07-02T06:28:21.334964+00:00",
+    "seeded_from_existing_import": true
+  },
+  "interview_psychologist_loop_kb:three_loops_auto_data_generation_spec.md": {
+    "sha256": "90bf12b1ff7f2d5bf2cc85fb1f4fc3d5b20dfcd478b37242dc7aaa000a2eefda",
+    "size_bytes": 13165,
+    "collection": "interview_psychologist_loop_kb",
+    "source": "three_loops_auto_data_generation_spec.md",
+    "embedding_model_id": "text-embedding-v4",
+    "chunk_strategy": "markdown",
+    "imported_at": "2026-07-02T06:28:21.436748+00:00",
+    "seeded_from_existing_import": true
+  },
+  "interview_psychologist_loop_kb:three_loops_implementation_design.md": {
+    "sha256": "8d4f3816a04b6522affef0ce95eb3a5a61cdf3c3692a2d138fd67dc09b65bf78",
+    "size_bytes": 23862,
+    "collection": "interview_psychologist_loop_kb",
+    "source": "three_loops_implementation_design.md",
+    "embedding_model_id": "text-embedding-v4",
+    "chunk_strategy": "markdown",
+    "imported_at": "2026-07-02T06:28:21.512821+00:00",
+    "seeded_from_existing_import": true
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "claim_audit": [
+    "omission"
+  ],
+  "bei_probe_plan": [
+    "5_minute_slice",
+    "counterfactual_probe",
+    "failure_review_probe"
+  ],
+  "bias_audit": [
+    "ageism"
+  ],
+  "compliance_rewrites": [],
+  "bars_scorecard": [
+    "constructive_collaboration",
+    "ownership",
+    "learning_agility",
+    "hard_skill_match",
+    "resilience_review"
+  ],
+  "decision": "备选池挂起",
+  "quality_gate": {
+    "passed": true,
+    "issues": [],
+    "self_check": "All high-risk claims have evidence probes."
+  }
+}

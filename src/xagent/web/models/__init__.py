@@ -5,6 +5,14 @@ from .chat_message import TaskChatMessage
 from .custom_api import CustomApi, UserCustomApi
 from .database import Base, get_db, get_engine, get_session_local
 from .kb_ingest_target import KBIngestTarget
+from .loop_eval import (
+    SelectionEvalResult,
+    SelectionEvalBudgetStat,
+    SelectionEvalRun,
+    SelectionLoopCase,
+    SelectionLoopProfile,
+    SelectionOutcome,
+)
 from .mcp import MCPServer, UserMCPServer
 from .model import Model
 from .oauth_provider import OAuthProvider
@@ -58,6 +66,12 @@ __all__ = [
     "BackgroundJobStatus",
     "BackgroundJobType",
     "KBIngestTarget",
+    "SelectionEvalRun",
+    "SelectionEvalResult",
+    "SelectionEvalBudgetStat",
+    "SelectionLoopCase",
+    "SelectionLoopProfile",
+    "SelectionOutcome",
     "TaskChatMessage",
     "UploadedFile",
     "SandboxInfo",

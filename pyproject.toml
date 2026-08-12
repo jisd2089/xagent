@@ -321,6 +321,7 @@ warn_unused_ignores = false
 [tool.hatch.build.targets.wheel]
 packages = ["src/xagent"]
 include = [
+  "src/xagent/loop_data_factory/schemas/*.json",
   "src/xagent/skills/builtin/**",
   "src/xagent/templates/built_in/**",
   "src/xagent/web/README.md",
@@ -328,6 +329,7 @@ include = [
 
 [tool.hatch.build.targets.sdist]
 include = [
+  "src/xagent/loop_data_factory/schemas/*.json",
   "src/xagent/skills/builtin/**",
   "src/xagent/templates/built_in/**",
   "src/xagent/web/README.md",

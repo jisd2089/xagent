@@ -1,0 +1,5 @@
+name: Test Candidate
+email: candidate@example.com
+phone: 13800138000
+target_role: backend architect
+I led a platform migration and improved latency by 35%.

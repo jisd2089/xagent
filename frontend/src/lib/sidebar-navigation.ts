@@ -14,6 +14,7 @@ import {
     Box,
     LayoutTemplate,
     Globe,
+    BarChart3,
 } from "lucide-react"
 
 export interface NavigationItem {
@@ -30,6 +31,10 @@ export interface NavigationGroup {
     title: string
     titleKey?: string
     items: NavigationItem[]
+}
+
+interface NavigationUser {
+    is_admin?: boolean
 }
 
 const baseMoreResourceItems: NavigationItem[] = [
@@ -60,10 +65,17 @@ const baseMoreResourceItems: NavigationItem[] = [
         href: "/monitoring",
         icon: Activity,
         color: "text-blue-400"
+    },
+    {
+        name: "Loop Eval",
+        nameKey: "nav.loopEval",
+        href: "/loop-eval",
+        icon: BarChart3,
+        color: "text-green-400"
     }
 ]
 
-const getMoreResourceItemsForUser = (user: any): NavigationItem[] => {
+const getMoreResourceItemsForUser = (user: NavigationUser | null | undefined): NavigationItem[] => {
     const items = [...baseMoreResourceItems]
 
     if (user?.is_admin) {
@@ -86,7 +98,7 @@ const getMoreResourceItemsForUser = (user: any): NavigationItem[] => {
     return items
 }
 
-export const getNavigationGroupsForUser = (user: any): NavigationGroup[] => [
+export const getNavigationGroupsForUser = (user: NavigationUser | null | undefined): NavigationGroup[] => [
     {
         title: "Agent Development",
         titleKey: "nav.sections.agentDevelopment",
@@ -168,6 +180,7 @@ const baseUserMenuItems: NavigationItem[] = [
     }
 ]
 
-export const getUserMenuItemsForUser = (_user: any): NavigationItem[] => {
+export const getUserMenuItemsForUser = (user: NavigationUser | null | undefined): NavigationItem[] => {
+    void user
     return [...baseUserMenuItems]
 }

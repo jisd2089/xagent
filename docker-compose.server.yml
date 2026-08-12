@@ -78,9 +78,9 @@ services:
     image: xprobe/xagent-backend:${XAGENT_IMAGE_TAG:-20260629.1}
     container_name: xagent_worker
     restart: unless-stopped
+    entrypoint: ["/opt/venv/bin/celery"]
     command:
       [
-        "celery",
         "-A",
         "xagent.web.jobs.celery_app:celery_app",
         "worker",
@@ -116,9 +116,9 @@ services:
     image: xprobe/xagent-backend:${XAGENT_IMAGE_TAG:-20260629.1}
     container_name: xagent_scheduler
     restart: unless-stopped
+    entrypoint: ["/opt/venv/bin/celery"]
     command:
       [
-        "celery",
         "-A",
         "xagent.web.jobs.celery_app:celery_app",
         "beat",

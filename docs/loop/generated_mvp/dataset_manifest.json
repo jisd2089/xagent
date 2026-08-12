@@ -1,0 +1,1033 @@
+{
+  "dataset_version": "2026-07-02.auto.001",
+  "level": "mvp",
+  "loops": [
+    "loop1",
+    "loop2",
+    "loop3"
+  ],
+  "case_count": 60,
+  "coverage_report": "coverage_reports/2026-07-02.auto.001.json",
+  "cases": [
+    {
+      "case_id": "loop1_industrial_ai_support_001",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_industrial_ai_support_001.json",
+      "prompt_path": "regression_prompts/loop1_industrial_ai_support_001.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_support",
+        "experience_band": "0-3",
+        "super_stage": "Exploration",
+        "claim_risk": "metric_inflation",
+        "interviewer_role": "HR",
+        "bias_type": "reactance",
+        "compliance_risk": "none",
+        "hiring_urgency": "High",
+        "competency_focus": "Hard",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "case_id": "loop1_backend_architect_002",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_backend_architect_002.json",
+      "prompt_path": "regression_prompts/loop1_backend_architect_002.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "backend_architect",
+        "experience_band": "4-10",
+        "super_stage": "Establishment",
+        "claim_risk": "role_exaggeration",
+        "interviewer_role": "PeerInterviewer",
+        "bias_type": "halo",
+        "compliance_risk": "family",
+        "hiring_urgency": "Med",
+        "competency_focus": "Soft",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "case_id": "loop1_software_developer_003",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_software_developer_003.json",
+      "prompt_path": "regression_prompts/loop1_software_developer_003.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "software_developer",
+        "experience_band": "10+",
+        "super_stage": "Maintenance",
+        "claim_risk": "distancing",
+        "interviewer_role": "HiringManager",
+        "bias_type": "affinity",
+        "compliance_risk": "religion",
+        "hiring_urgency": "Low",
+        "competency_focus": "Balanced",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "case_id": "loop1_industrial_ai_product_004",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_industrial_ai_product_004.json",
+      "prompt_path": "regression_prompts/loop1_industrial_ai_product_004.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_product",
+        "experience_band": "0-3",
+        "super_stage": "Exploration",
+        "claim_risk": "omission",
+        "interviewer_role": "Executive",
+        "bias_type": "ageism",
+        "compliance_risk": "health",
+        "hiring_urgency": "High",
+        "competency_focus": "Hard",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "case_id": "loop1_quality_engineer_005",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_quality_engineer_005.json",
+      "prompt_path": "regression_prompts/loop1_quality_engineer_005.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "quality_engineer",
+        "experience_band": "4-10",
+        "super_stage": "Establishment",
+        "claim_risk": "low_risk_control",
+        "interviewer_role": "HR",
+        "bias_type": "none",
+        "compliance_risk": "age",
+        "hiring_urgency": "Med",
+        "competency_focus": "Soft",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "case_id": "loop1_industrial_ai_support_006",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_industrial_ai_support_006.json",
+      "prompt_path": "regression_prompts/loop1_industrial_ai_support_006.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_support",
+        "experience_band": "10+",
+        "super_stage": "Maintenance",
+        "claim_risk": "metric_inflation",
+        "interviewer_role": "PeerInterviewer",
+        "bias_type": "reactance",
+        "compliance_risk": "origin",
+        "hiring_urgency": "Low",
+        "competency_focus": "Balanced",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "case_id": "loop1_backend_architect_007",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_backend_architect_007.json",
+      "prompt_path": "regression_prompts/loop1_backend_architect_007.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "backend_architect",
+        "experience_band": "0-3",
+        "super_stage": "Exploration",
+        "claim_risk": "role_exaggeration",
+        "interviewer_role": "HiringManager",
+        "bias_type": "halo",
+        "compliance_risk": "none",
+        "hiring_urgency": "High",
+        "competency_focus": "Hard",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "case_id": "loop1_software_developer_008",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_software_developer_008.json",
+      "prompt_path": "regression_prompts/loop1_software_developer_008.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "software_developer",
+        "experience_band": "4-10",
+        "super_stage": "Establishment",
+        "claim_risk": "distancing",
+        "interviewer_role": "Executive",
+        "bias_type": "affinity",
+        "compliance_risk": "family",
+        "hiring_urgency": "Med",
+        "competency_focus": "Soft",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "case_id": "loop1_industrial_ai_product_009",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_industrial_ai_product_009.json",
+      "prompt_path": "regression_prompts/loop1_industrial_ai_product_009.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_product",
+        "experience_band": "10+",
+        "super_stage": "Maintenance",
+        "claim_risk": "omission",
+        "interviewer_role": "HR",
+        "bias_type": "ageism",
+        "compliance_risk": "religion",
+        "hiring_urgency": "Low",
+        "competency_focus": "Balanced",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "case_id": "loop1_quality_engineer_010",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_quality_engineer_010.json",
+      "prompt_path": "regression_prompts/loop1_quality_engineer_010.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "quality_engineer",
+        "experience_band": "0-3",
+        "super_stage": "Exploration",
+        "claim_risk": "low_risk_control",
+        "interviewer_role": "PeerInterviewer",
+        "bias_type": "none",
+        "compliance_risk": "health",
+        "hiring_urgency": "High",
+        "competency_focus": "Hard",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "case_id": "loop1_industrial_ai_support_011",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_industrial_ai_support_011.json",
+      "prompt_path": "regression_prompts/loop1_industrial_ai_support_011.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_support",
+        "experience_band": "4-10",
+        "super_stage": "Establishment",
+        "claim_risk": "metric_inflation",
+        "interviewer_role": "HiringManager",
+        "bias_type": "reactance",
+        "compliance_risk": "age",
+        "hiring_urgency": "Med",
+        "competency_focus": "Soft",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "case_id": "loop1_backend_architect_012",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_backend_architect_012.json",
+      "prompt_path": "regression_prompts/loop1_backend_architect_012.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "backend_architect",
+        "experience_band": "10+",
+        "super_stage": "Maintenance",
+        "claim_risk": "role_exaggeration",
+        "interviewer_role": "Executive",
+        "bias_type": "halo",
+        "compliance_risk": "origin",
+        "hiring_urgency": "Low",
+        "competency_focus": "Balanced",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "case_id": "loop1_software_developer_013",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_software_developer_013.json",
+      "prompt_path": "regression_prompts/loop1_software_developer_013.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "software_developer",
+        "experience_band": "0-3",
+        "super_stage": "Exploration",
+        "claim_risk": "distancing",
+        "interviewer_role": "HR",
+        "bias_type": "affinity",
+        "compliance_risk": "none",
+        "hiring_urgency": "High",
+        "competency_focus": "Hard",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "case_id": "loop1_industrial_ai_product_014",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_industrial_ai_product_014.json",
+      "prompt_path": "regression_prompts/loop1_industrial_ai_product_014.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_product",
+        "experience_band": "4-10",
+        "super_stage": "Establishment",
+        "claim_risk": "omission",
+        "interviewer_role": "PeerInterviewer",
+        "bias_type": "ageism",
+        "compliance_risk": "family",
+        "hiring_urgency": "Med",
+        "competency_focus": "Soft",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "case_id": "loop1_quality_engineer_015",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_quality_engineer_015.json",
+      "prompt_path": "regression_prompts/loop1_quality_engineer_015.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "quality_engineer",
+        "experience_band": "10+",
+        "super_stage": "Maintenance",
+        "claim_risk": "low_risk_control",
+        "interviewer_role": "HiringManager",
+        "bias_type": "none",
+        "compliance_risk": "religion",
+        "hiring_urgency": "Low",
+        "competency_focus": "Balanced",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "case_id": "loop1_industrial_ai_support_016",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_industrial_ai_support_016.json",
+      "prompt_path": "regression_prompts/loop1_industrial_ai_support_016.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_support",
+        "experience_band": "0-3",
+        "super_stage": "Exploration",
+        "claim_risk": "metric_inflation",
+        "interviewer_role": "Executive",
+        "bias_type": "reactance",
+        "compliance_risk": "health",
+        "hiring_urgency": "High",
+        "competency_focus": "Hard",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "case_id": "loop1_backend_architect_017",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_backend_architect_017.json",
+      "prompt_path": "regression_prompts/loop1_backend_architect_017.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "backend_architect",
+        "experience_band": "4-10",
+        "super_stage": "Establishment",
+        "claim_risk": "role_exaggeration",
+        "interviewer_role": "HR",
+        "bias_type": "halo",
+        "compliance_risk": "age",
+        "hiring_urgency": "Med",
+        "competency_focus": "Soft",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "case_id": "loop1_software_developer_018",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_software_developer_018.json",
+      "prompt_path": "regression_prompts/loop1_software_developer_018.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "software_developer",
+        "experience_band": "10+",
+        "super_stage": "Maintenance",
+        "claim_risk": "distancing",
+        "interviewer_role": "PeerInterviewer",
+        "bias_type": "affinity",
+        "compliance_risk": "origin",
+        "hiring_urgency": "Low",
+        "competency_focus": "Balanced",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "case_id": "loop1_industrial_ai_product_019",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_industrial_ai_product_019.json",
+      "prompt_path": "regression_prompts/loop1_industrial_ai_product_019.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_product",
+        "experience_band": "0-3",
+        "super_stage": "Exploration",
+        "claim_risk": "omission",
+        "interviewer_role": "HiringManager",
+        "bias_type": "ageism",
+        "compliance_risk": "none",
+        "hiring_urgency": "High",
+        "competency_focus": "Hard",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "case_id": "loop1_quality_engineer_020",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_quality_engineer_020.json",
+      "prompt_path": "regression_prompts/loop1_quality_engineer_020.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "quality_engineer",
+        "experience_band": "4-10",
+        "super_stage": "Establishment",
+        "claim_risk": "low_risk_control",
+        "interviewer_role": "Executive",
+        "bias_type": "none",
+        "compliance_risk": "family",
+        "hiring_urgency": "Med",
+        "competency_focus": "Soft",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "case_id": "loop1_industrial_ai_support_021",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_industrial_ai_support_021.json",
+      "prompt_path": "regression_prompts/loop1_industrial_ai_support_021.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_support",
+        "experience_band": "10+",
+        "super_stage": "Maintenance",
+        "claim_risk": "metric_inflation",
+        "interviewer_role": "HR",
+        "bias_type": "reactance",
+        "compliance_risk": "religion",
+        "hiring_urgency": "Low",
+        "competency_focus": "Balanced",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "case_id": "loop1_backend_architect_022",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_backend_architect_022.json",
+      "prompt_path": "regression_prompts/loop1_backend_architect_022.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "backend_architect",
+        "experience_band": "0-3",
+        "super_stage": "Exploration",
+        "claim_risk": "role_exaggeration",
+        "interviewer_role": "PeerInterviewer",
+        "bias_type": "halo",
+        "compliance_risk": "health",
+        "hiring_urgency": "High",
+        "competency_focus": "Hard",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "case_id": "loop1_software_developer_023",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_software_developer_023.json",
+      "prompt_path": "regression_prompts/loop1_software_developer_023.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "software_developer",
+        "experience_band": "4-10",
+        "super_stage": "Establishment",
+        "claim_risk": "distancing",
+        "interviewer_role": "HiringManager",
+        "bias_type": "affinity",
+        "compliance_risk": "age",
+        "hiring_urgency": "Med",
+        "competency_focus": "Soft",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "case_id": "loop1_industrial_ai_product_024",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_industrial_ai_product_024.json",
+      "prompt_path": "regression_prompts/loop1_industrial_ai_product_024.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_product",
+        "experience_band": "10+",
+        "super_stage": "Maintenance",
+        "claim_risk": "omission",
+        "interviewer_role": "Executive",
+        "bias_type": "ageism",
+        "compliance_risk": "origin",
+        "hiring_urgency": "Low",
+        "competency_focus": "Balanced",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "case_id": "loop1_quality_engineer_025",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_quality_engineer_025.json",
+      "prompt_path": "regression_prompts/loop1_quality_engineer_025.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "quality_engineer",
+        "experience_band": "0-3",
+        "super_stage": "Exploration",
+        "claim_risk": "low_risk_control",
+        "interviewer_role": "HR",
+        "bias_type": "none",
+        "compliance_risk": "none",
+        "hiring_urgency": "High",
+        "competency_focus": "Hard",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "case_id": "loop1_industrial_ai_support_026",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_industrial_ai_support_026.json",
+      "prompt_path": "regression_prompts/loop1_industrial_ai_support_026.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_support",
+        "experience_band": "4-10",
+        "super_stage": "Establishment",
+        "claim_risk": "metric_inflation",
+        "interviewer_role": "PeerInterviewer",
+        "bias_type": "reactance",
+        "compliance_risk": "family",
+        "hiring_urgency": "Med",
+        "competency_focus": "Soft",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "case_id": "loop1_backend_architect_027",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_backend_architect_027.json",
+      "prompt_path": "regression_prompts/loop1_backend_architect_027.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "backend_architect",
+        "experience_band": "10+",
+        "super_stage": "Maintenance",
+        "claim_risk": "role_exaggeration",
+        "interviewer_role": "HiringManager",
+        "bias_type": "halo",
+        "compliance_risk": "religion",
+        "hiring_urgency": "Low",
+        "competency_focus": "Balanced",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "case_id": "loop1_software_developer_028",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_software_developer_028.json",
+      "prompt_path": "regression_prompts/loop1_software_developer_028.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "software_developer",
+        "experience_band": "0-3",
+        "super_stage": "Exploration",
+        "claim_risk": "distancing",
+        "interviewer_role": "Executive",
+        "bias_type": "affinity",
+        "compliance_risk": "health",
+        "hiring_urgency": "High",
+        "competency_focus": "Hard",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "case_id": "loop1_industrial_ai_product_029",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_industrial_ai_product_029.json",
+      "prompt_path": "regression_prompts/loop1_industrial_ai_product_029.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_product",
+        "experience_band": "4-10",
+        "super_stage": "Establishment",
+        "claim_risk": "omission",
+        "interviewer_role": "HR",
+        "bias_type": "ageism",
+        "compliance_risk": "age",
+        "hiring_urgency": "Med",
+        "competency_focus": "Soft",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "case_id": "loop1_quality_engineer_030",
+      "loop_type": "loop1",
+      "path": "loop1_candidate_cases/loop1_quality_engineer_030.json",
+      "prompt_path": "regression_prompts/loop1_quality_engineer_030.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "quality_engineer",
+        "experience_band": "10+",
+        "super_stage": "Maintenance",
+        "claim_risk": "low_risk_control",
+        "interviewer_role": "PeerInterviewer",
+        "bias_type": "none",
+        "compliance_risk": "origin",
+        "hiring_urgency": "Low",
+        "competency_focus": "Balanced",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "case_id": "loop2_industrial_ai_support_001",
+      "loop_type": "loop2",
+      "path": "loop2_feedback_cases/loop2_industrial_ai_support_001.json",
+      "prompt_path": "regression_prompts/loop2_industrial_ai_support_001.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_support",
+        "feedback_source": "HR",
+        "feedback_type": "competency_weight",
+        "conflict_type": "urgent_vs_high_standard",
+        "hiring_urgency": "High",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "case_id": "loop2_backend_architect_002",
+      "loop_type": "loop2",
+      "path": "loop2_feedback_cases/loop2_backend_architect_002.json",
+      "prompt_path": "regression_prompts/loop2_backend_architect_002.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "backend_architect",
+        "feedback_source": "Recruiter",
+        "feedback_type": "risk_preference",
+        "conflict_type": "hard_vs_soft",
+        "hiring_urgency": "Med",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "case_id": "loop2_software_developer_003",
+      "loop_type": "loop2",
+      "path": "loop2_feedback_cases/loop2_software_developer_003.json",
+      "prompt_path": "regression_prompts/loop2_software_developer_003.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "software_developer",
+        "feedback_source": "HiringManager",
+        "feedback_type": "team_context",
+        "conflict_type": "education_vs_potential",
+        "hiring_urgency": "Low",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "case_id": "loop2_industrial_ai_product_004",
+      "loop_type": "loop2",
+      "path": "loop2_feedback_cases/loop2_industrial_ai_product_004.json",
+      "prompt_path": "regression_prompts/loop2_industrial_ai_product_004.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_product",
+        "feedback_source": "PeerInterviewer",
+        "feedback_type": "compliance_rule",
+        "conflict_type": "culture_fit_vs_debias",
+        "hiring_urgency": "High",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "case_id": "loop2_quality_engineer_005",
+      "loop_type": "loop2",
+      "path": "loop2_feedback_cases/loop2_quality_engineer_005.json",
+      "prompt_path": "regression_prompts/loop2_quality_engineer_005.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "quality_engineer",
+        "feedback_source": "Executive",
+        "feedback_type": "scoring_calibration",
+        "conflict_type": "none",
+        "hiring_urgency": "Med",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "case_id": "loop2_industrial_ai_support_006",
+      "loop_type": "loop2",
+      "path": "loop2_feedback_cases/loop2_industrial_ai_support_006.json",
+      "prompt_path": "regression_prompts/loop2_industrial_ai_support_006.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_support",
+        "feedback_source": "HR",
+        "feedback_type": "competency_weight",
+        "conflict_type": "urgent_vs_high_standard",
+        "hiring_urgency": "Low",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "case_id": "loop2_backend_architect_007",
+      "loop_type": "loop2",
+      "path": "loop2_feedback_cases/loop2_backend_architect_007.json",
+      "prompt_path": "regression_prompts/loop2_backend_architect_007.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "backend_architect",
+        "feedback_source": "Recruiter",
+        "feedback_type": "risk_preference",
+        "conflict_type": "hard_vs_soft",
+        "hiring_urgency": "High",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "case_id": "loop2_software_developer_008",
+      "loop_type": "loop2",
+      "path": "loop2_feedback_cases/loop2_software_developer_008.json",
+      "prompt_path": "regression_prompts/loop2_software_developer_008.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "software_developer",
+        "feedback_source": "HiringManager",
+        "feedback_type": "team_context",
+        "conflict_type": "education_vs_potential",
+        "hiring_urgency": "Med",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "case_id": "loop2_industrial_ai_product_009",
+      "loop_type": "loop2",
+      "path": "loop2_feedback_cases/loop2_industrial_ai_product_009.json",
+      "prompt_path": "regression_prompts/loop2_industrial_ai_product_009.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_product",
+        "feedback_source": "PeerInterviewer",
+        "feedback_type": "compliance_rule",
+        "conflict_type": "culture_fit_vs_debias",
+        "hiring_urgency": "Low",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "case_id": "loop2_quality_engineer_010",
+      "loop_type": "loop2",
+      "path": "loop2_feedback_cases/loop2_quality_engineer_010.json",
+      "prompt_path": "regression_prompts/loop2_quality_engineer_010.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "quality_engineer",
+        "feedback_source": "Executive",
+        "feedback_type": "scoring_calibration",
+        "conflict_type": "none",
+        "hiring_urgency": "High",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "case_id": "loop2_industrial_ai_support_011",
+      "loop_type": "loop2",
+      "path": "loop2_feedback_cases/loop2_industrial_ai_support_011.json",
+      "prompt_path": "regression_prompts/loop2_industrial_ai_support_011.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_support",
+        "feedback_source": "HR",
+        "feedback_type": "competency_weight",
+        "conflict_type": "urgent_vs_high_standard",
+        "hiring_urgency": "Med",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "case_id": "loop2_backend_architect_012",
+      "loop_type": "loop2",
+      "path": "loop2_feedback_cases/loop2_backend_architect_012.json",
+      "prompt_path": "regression_prompts/loop2_backend_architect_012.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "backend_architect",
+        "feedback_source": "Recruiter",
+        "feedback_type": "risk_preference",
+        "conflict_type": "hard_vs_soft",
+        "hiring_urgency": "Low",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "case_id": "loop2_software_developer_013",
+      "loop_type": "loop2",
+      "path": "loop2_feedback_cases/loop2_software_developer_013.json",
+      "prompt_path": "regression_prompts/loop2_software_developer_013.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "software_developer",
+        "feedback_source": "HiringManager",
+        "feedback_type": "team_context",
+        "conflict_type": "education_vs_potential",
+        "hiring_urgency": "High",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "case_id": "loop2_industrial_ai_product_014",
+      "loop_type": "loop2",
+      "path": "loop2_feedback_cases/loop2_industrial_ai_product_014.json",
+      "prompt_path": "regression_prompts/loop2_industrial_ai_product_014.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_product",
+        "feedback_source": "PeerInterviewer",
+        "feedback_type": "compliance_rule",
+        "conflict_type": "culture_fit_vs_debias",
+        "hiring_urgency": "Med",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "case_id": "loop2_quality_engineer_015",
+      "loop_type": "loop2",
+      "path": "loop2_feedback_cases/loop2_quality_engineer_015.json",
+      "prompt_path": "regression_prompts/loop2_quality_engineer_015.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "quality_engineer",
+        "feedback_source": "Executive",
+        "feedback_type": "scoring_calibration",
+        "conflict_type": "none",
+        "hiring_urgency": "Low",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "case_id": "loop3_industrial_ai_support_001",
+      "loop_type": "loop3",
+      "path": "loop3_outcome_cases/loop3_industrial_ai_support_001.json",
+      "prompt_path": "regression_prompts/loop3_industrial_ai_support_001.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_support",
+        "outcome_type": "hit",
+        "miss_type": "collaboration_risk",
+        "sample_size_band": "individual",
+        "outcome_window": "second_round",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "case_id": "loop3_backend_architect_002",
+      "loop_type": "loop3",
+      "path": "loop3_outcome_cases/loop3_backend_architect_002.json",
+      "prompt_path": "regression_prompts/loop3_backend_architect_002.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "backend_architect",
+        "outcome_type": "false_positive",
+        "miss_type": "hard_skill_water",
+        "sample_size_band": "small_5_10",
+        "outcome_window": "offer",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "case_id": "loop3_software_developer_003",
+      "loop_type": "loop3",
+      "path": "loop3_outcome_cases/loop3_software_developer_003.json",
+      "prompt_path": "regression_prompts/loop3_software_developer_003.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "software_developer",
+        "outcome_type": "false_negative",
+        "miss_type": "learning_agility_underestimated",
+        "sample_size_band": "batch_20_plus",
+        "outcome_window": "day_30",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "case_id": "loop3_industrial_ai_product_004",
+      "loop_type": "loop3",
+      "path": "loop3_outcome_cases/loop3_industrial_ai_product_004.json",
+      "prompt_path": "regression_prompts/loop3_industrial_ai_product_004.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_product",
+        "outcome_type": "human_override_success",
+        "miss_type": "compliance_issue",
+        "sample_size_band": "cross_job",
+        "outcome_window": "day_60",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "case_id": "loop3_quality_engineer_005",
+      "loop_type": "loop3",
+      "path": "loop3_outcome_cases/loop3_quality_engineer_005.json",
+      "prompt_path": "regression_prompts/loop3_quality_engineer_005.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "quality_engineer",
+        "outcome_type": "human_override_failure",
+        "miss_type": "motivation_misread",
+        "sample_size_band": "individual",
+        "outcome_window": "day_90",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "case_id": "loop3_industrial_ai_support_006",
+      "loop_type": "loop3",
+      "path": "loop3_outcome_cases/loop3_industrial_ai_support_006.json",
+      "prompt_path": "regression_prompts/loop3_industrial_ai_support_006.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_support",
+        "outcome_type": "hit",
+        "miss_type": "collaboration_risk",
+        "sample_size_band": "small_5_10",
+        "outcome_window": "probation",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "case_id": "loop3_backend_architect_007",
+      "loop_type": "loop3",
+      "path": "loop3_outcome_cases/loop3_backend_architect_007.json",
+      "prompt_path": "regression_prompts/loop3_backend_architect_007.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "backend_architect",
+        "outcome_type": "false_positive",
+        "miss_type": "hard_skill_water",
+        "sample_size_band": "batch_20_plus",
+        "outcome_window": "second_round",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "case_id": "loop3_software_developer_008",
+      "loop_type": "loop3",
+      "path": "loop3_outcome_cases/loop3_software_developer_008.json",
+      "prompt_path": "regression_prompts/loop3_software_developer_008.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "software_developer",
+        "outcome_type": "false_negative",
+        "miss_type": "learning_agility_underestimated",
+        "sample_size_band": "cross_job",
+        "outcome_window": "offer",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "case_id": "loop3_industrial_ai_product_009",
+      "loop_type": "loop3",
+      "path": "loop3_outcome_cases/loop3_industrial_ai_product_009.json",
+      "prompt_path": "regression_prompts/loop3_industrial_ai_product_009.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_product",
+        "outcome_type": "human_override_success",
+        "miss_type": "compliance_issue",
+        "sample_size_band": "individual",
+        "outcome_window": "day_30",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "case_id": "loop3_quality_engineer_010",
+      "loop_type": "loop3",
+      "path": "loop3_outcome_cases/loop3_quality_engineer_010.json",
+      "prompt_path": "regression_prompts/loop3_quality_engineer_010.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "quality_engineer",
+        "outcome_type": "human_override_failure",
+        "miss_type": "motivation_misread",
+        "sample_size_band": "small_5_10",
+        "outcome_window": "day_60",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "case_id": "loop3_industrial_ai_support_011",
+      "loop_type": "loop3",
+      "path": "loop3_outcome_cases/loop3_industrial_ai_support_011.json",
+      "prompt_path": "regression_prompts/loop3_industrial_ai_support_011.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_support",
+        "outcome_type": "hit",
+        "miss_type": "collaboration_risk",
+        "sample_size_band": "batch_20_plus",
+        "outcome_window": "day_90",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "case_id": "loop3_backend_architect_012",
+      "loop_type": "loop3",
+      "path": "loop3_outcome_cases/loop3_backend_architect_012.json",
+      "prompt_path": "regression_prompts/loop3_backend_architect_012.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "backend_architect",
+        "outcome_type": "false_positive",
+        "miss_type": "hard_skill_water",
+        "sample_size_band": "cross_job",
+        "outcome_window": "probation",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "case_id": "loop3_software_developer_013",
+      "loop_type": "loop3",
+      "path": "loop3_outcome_cases/loop3_software_developer_013.json",
+      "prompt_path": "regression_prompts/loop3_software_developer_013.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "software_developer",
+        "outcome_type": "false_negative",
+        "miss_type": "learning_agility_underestimated",
+        "sample_size_band": "individual",
+        "outcome_window": "second_round",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "case_id": "loop3_industrial_ai_product_014",
+      "loop_type": "loop3",
+      "path": "loop3_outcome_cases/loop3_industrial_ai_product_014.json",
+      "prompt_path": "regression_prompts/loop3_industrial_ai_product_014.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "industrial_ai_product",
+        "outcome_type": "human_override_success",
+        "miss_type": "compliance_issue",
+        "sample_size_band": "small_5_10",
+        "outcome_window": "offer",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "case_id": "loop3_quality_engineer_015",
+      "loop_type": "loop3",
+      "path": "loop3_outcome_cases/loop3_quality_engineer_015.json",
+      "prompt_path": "regression_prompts/loop3_quality_engineer_015.md",
+      "quality_passed": true,
+      "tags": {
+        "job_family": "quality_engineer",
+        "outcome_type": "human_override_failure",
+        "miss_type": "motivation_misread",
+        "sample_size_band": "batch_20_plus",
+        "outcome_window": "day_30",
+        "difficulty": "hard"
+      }
+    }
+  ]
+}

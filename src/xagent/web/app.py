@@ -34,6 +34,13 @@ from .api.custom_api import custom_api_router
 from .api.files import file_router
 from .api.jobs import jobs_router
 from .api.kb import kb_router
+from .api.loop_data import (
+    loop_data_router,
+    loop_eval_router,
+    selection_cases_router,
+    selection_outcomes_router,
+    selection_profiles_router,
+)
 from .api.mcp import mcp_router
 from .api.me import router as me_router
 from .api.memory import MemoryManagementRouter
@@ -508,6 +515,11 @@ app.include_router(cloud_router)
 app.include_router(file_router)
 app.include_router(jobs_router)
 app.include_router(kb_router)
+app.include_router(loop_data_router)
+app.include_router(loop_eval_router)
+app.include_router(selection_profiles_router)
+app.include_router(selection_cases_router)
+app.include_router(selection_outcomes_router)
 app.include_router(me_router)
 app.include_router(model_router)
 app.include_router(ws_router)
